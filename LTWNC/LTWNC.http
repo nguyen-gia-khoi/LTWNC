@@ -1,0 +1,6 @@
+@LTWNC_HostAddress = http://localhost:5171
+
+GET {{LTWNC_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
