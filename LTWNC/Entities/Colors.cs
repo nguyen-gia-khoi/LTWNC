@@ -1,6 +1,6 @@
 ﻿namespace LTWNC.Entities
 {
-    public class Product
+    public class Colors
     {
     }
 }

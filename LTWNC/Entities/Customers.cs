@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace LTWNC.Entities
 {
     [BsonIgnoreExtraElements]
-    public class Customer
+    public class Customers
     {
         [BsonId]
         [BsonElement("_id"), BsonRepresentation(BsonType.ObjectId)]
