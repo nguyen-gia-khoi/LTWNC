@@ -66,7 +66,7 @@ namespace LTWNC.Controllers
 
                 if (result.MatchedCount == 0)
                 {
-                    return NotFound($"Size with ID {id} not found.");
+                    return NotFound($"Size with ID {id} not found1.");
                 }
 
                 return Ok($"Size with ID {id} updated successfully.");
