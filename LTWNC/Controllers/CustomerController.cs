@@ -5,42 +5,46 @@ using LTWNC.Data;
 using LTWNC.Entities;
 using MongoDB.Bson;
 using System.Text.Json;
+using LTWNC.Middleware;
+using Microsoft.AspNetCore.Authorization;
 
 namespace LTWNC.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    
     public class CustomerController : ControllerBase
     {
-        private readonly IMongoCollection<Customers> _customers;
+        private readonly IMongoCollection<Users> _users;
 
         public CustomerController(MongoDbService mongoDbService)
         {
-            _customers = mongoDbService.Database?.GetCollection<Customers>("customers")
+            _users = mongoDbService.Database?.GetCollection<Users>("users")
                 ?? throw new ArgumentNullException(nameof(mongoDbService.Database), "MongoDB Database is null");
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Customers>>> GetAll()
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<Users>>> GetAll()
         {
             try
             {
-                var customers = await _customers.Find(FilterDefinition<Customers>.Empty).ToListAsync();
-                return Ok(customers);
+                var users = await _users.Find(FilterDefinition<Users>.Empty).ToListAsync();
+                return Ok(users);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error retrieving customers: {ex.Message}");
+                return StatusCode(500, $"Error retrieving users: {ex.Message}");
             }
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Customers?>> GetById(string id)
+        public async Task<ActionResult<Users?>> GetById(string id)
         {
             try
             {
-                var filter = Builders<Customers>.Filter.Eq(x => x.Id, id);
-                var customer = await _customers.Find(filter).FirstOrDefaultAsync();
+                var filter = Builders<Users>.Filter.Eq(x => x.Id, id);
+                var customer = await _users.Find(filter).FirstOrDefaultAsync();
                 return customer is not null ? Ok(customer) : NotFound();
             }
             catch (Exception ex)
@@ -50,11 +54,21 @@ namespace LTWNC.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult> CreateCustomer(Customers customer)
+        public async Task<ActionResult> CreateCustomer(Users customer)
         {
             try
             {
-                await _customers.InsertOneAsync(customer);
+                // Hash password trước khi lưu
+                if (!string.IsNullOrWhiteSpace(customer.Password))
+                {
+                    customer.Password = HashPassword.CreateHash(customer.Password);
+                }
+                else
+                {
+                    return BadRequest("Password is required.");
+                }
+
+                await _users.InsertOneAsync(customer);
                 return CreatedAtAction(nameof(GetById), new { id = customer.Id }, customer);
             }
             catch (Exception ex)
@@ -63,13 +77,14 @@ namespace LTWNC.Controllers
             }
         }
 
+
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteCustomer(string id)
         {
             try
             {
-                var filter = Builders<Customers>.Filter.Eq(c => c.Id, id);
-                var result = await _customers.DeleteOneAsync(filter);
+                var filter = Builders<Users>.Filter.Eq(c => c.Id, id);
+                var result = await _users.DeleteOneAsync(filter);
 
                 if (result.DeletedCount == 0)
                     return NotFound();
@@ -87,20 +102,20 @@ namespace LTWNC.Controllers
         {
             try
             {
-                var filter = Builders<Customers>.Filter.Eq(x => x.Id, id);
-                var updateDef = new List<UpdateDefinition<Customers>>();
+                var filter = Builders<Users>.Filter.Eq(x => x.Id, id);
+                var updateDef = new List<UpdateDefinition<Users>>();
 
                 foreach (var prop in updates.EnumerateObject())
                 {
                     if (prop.NameEquals("id")) continue;
-                    updateDef.Add(Builders<Customers>.Update.Set(prop.Name, JsonElementToBsonValue(prop.Value)));
+                    updateDef.Add(Builders<Users>.Update.Set(prop.Name, JsonElementToBsonValue(prop.Value)));
                 }
 
                 if (updateDef.Count == 0)
                     return BadRequest("No fields to update.");
 
-                var update = Builders<Customers>.Update.Combine(updateDef);
-                var result = await _customers.UpdateOneAsync(filter, update);
+                var update = Builders<Users>.Update.Combine(updateDef);
+                var result = await _users.UpdateOneAsync(filter, update);
 
                 if (result.MatchedCount == 0)
                     return NotFound();
