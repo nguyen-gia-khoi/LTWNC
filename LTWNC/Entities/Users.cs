@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace LTWNC.Entities
 {
     [BsonIgnoreExtraElements]
-    public class Customers
+    public class Users
     {
         [BsonId]
         [BsonElement("_id"), BsonRepresentation(BsonType.ObjectId)]
@@ -21,14 +21,17 @@ namespace LTWNC.Entities
         [BsonElement("email")]
         public string? Email { get; set; }
 
-        [BsonElement("gender")]
-        [JsonConverter(typeof(JsonStringEnumConverter))]
-        public Gender Gender { get; set; }
+        [BsonElement("password")]
+        public string? Password { get; set; }
 
         [BsonElement("role")]
         [BsonRepresentation(BsonType.String)]
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public Role Role { get; set; }
+
+        [BsonElement("gender")]
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public Gender Gender { get; set; }
 
         [BsonElement("phoneNumber")]
         [JsonPropertyName("phoneNumber")]
