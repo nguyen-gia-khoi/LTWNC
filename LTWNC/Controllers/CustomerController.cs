@@ -58,7 +58,10 @@ namespace LTWNC.Controllers
         {
             try
             {
-                // Hash password trước khi lưu
+                if (customer.Role == Role.Admin)
+                {
+                    return BadRequest("Creating user with role 'admin' is not allowed.");
+                }
                 if (!string.IsNullOrWhiteSpace(customer.Password))
                 {
                     customer.Password = HashPassword.CreateHash(customer.Password);
