@@ -60,7 +60,7 @@ namespace LTWNC.Controllers
             {
                 if (customer.Role == Role.Admin)
                 {
-                    return BadRequest("Creating user with role 'admin' is not allowed.");
+                    return BadRequest("Creating user with role 'admin' is not allowed1.");
                 }
                 if (!string.IsNullOrWhiteSpace(customer.Password))
                 {
