@@ -15,7 +15,7 @@ namespace LTWNC.Controllers
 
         public ColorsController(MongoDbService mongoDbService) 
         {
-            _colors = mongoDbService.Database?.GetCollection<Colors>("customer");
+            _colors = mongoDbService.Database?.GetCollection<Colors>("colors");
         }
 
         [HttpGet]
@@ -35,7 +35,7 @@ namespace LTWNC.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error retrieving customer: {ex.Message}");
+                return StatusCode(500, $"Error retrieving colors: {ex.Message}");
             }
         }
 
@@ -49,7 +49,7 @@ namespace LTWNC.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error creating colors: {ex.Message}");
+                return StatusCode(500, $"Error creating color: {ex.Message}");
             }
         }
 
