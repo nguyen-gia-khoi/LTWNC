@@ -24,7 +24,7 @@ namespace LTWNC.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Admin")]
+        // [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Users>>> GetAll()
         {
             try
