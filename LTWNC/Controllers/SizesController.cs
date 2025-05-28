@@ -14,7 +14,7 @@ namespace LTWNC.Controllers
 
         public SizesController(MongoDbService mongoDbService)
         {
-            _sizes = mongoDbService.Database?.GetCollection<Sizes>("customer");
+            _sizes = mongoDbService.Database?.GetCollection<Sizes>("sizes");
         }
 
         [HttpGet]
