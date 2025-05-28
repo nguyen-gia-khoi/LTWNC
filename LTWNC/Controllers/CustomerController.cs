@@ -24,7 +24,7 @@ namespace LTWNC.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Admin")]
+        // [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Users>>> GetAll()
         {
             try
@@ -60,7 +60,7 @@ namespace LTWNC.Controllers
             {
                 if (customer.Role == Role.Admin)
                 {
-                    return BadRequest("Creating user with role 'admin' is not allowed.");
+                    return BadRequest("Creating user with role 'admin' is not allowed1.");
                 }
                 if (!string.IsNullOrWhiteSpace(customer.Password))
                 {
