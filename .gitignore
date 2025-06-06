@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 /LTWNC/appsettings.json
 /LTWNC/appsettings.json
+/LTWNC/appsettings.Development.json
