@@ -1,0 +1,157 @@
+@page
+@model LTWNC.Pages.Home.IndexModel
+
+<div class="home-container">
+    <div class="welcome-section">
+        <h1>Welcome to Our Website</h1>
+        <p>You have successfully logged in!</p>
+        <button type="button" id="logoutButton" class="logout-button">Logout</button>
+    </div>
+    
+    <div class="content-section">
+        <div class="card">
+            <h2>Your Profile</h2>
+            <div id="userInfo">
+                <p>Loading user information...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .home-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .welcome-section {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .welcome-section h1 {
+        color: #333;
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .content-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+    }
+
+    .card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2 {
+        color: #333;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 0.5rem;
+    }
+
+    .logout-button {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 1rem;
+    }
+
+    .logout-button:hover {
+        background: #c82333;
+    }
+</style>
+
+@section Scripts {
+    <script>
+        function deleteCookie(name) {
+            // Lấy domain hiện tại
+            const domain = window.location.hostname;
+            
+            // Xóa cookie với các thuộc tính khác nhau
+            const paths = ['/', '/Home', '/Authentication'];
+            const domains = [domain, '.' + domain, ''];
+            
+            paths.forEach(path => {
+                domains.forEach(domain => {
+                    let cookieString = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path}`;
+                    if (domain) {
+                        cookieString += `; domain=${domain}`;
+                    }
+                    cookieString += '; secure; samesite=strict';
+                    document.cookie = cookieString;
+                });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Thêm event listener cho nút logout
+            document.getElementById('logoutButton').addEventListener('click', function() {
+                console.log('Logout button clicked');
+                console.log('Before logout - Cookies:', document.cookie);
+                
+                // Xóa cookie accessToken
+                deleteCookie('accessToken');
+                
+                console.log('After logout - Cookies:', document.cookie);
+                
+                // Chuyển hướng về trang login
+                window.location.replace('/Authentication/Login');
+            });
+
+            try {
+                // Get the token from cookie
+                const token = document.cookie
+                    .split('; ')
+                    .find(row => row.startsWith('accessToken='))
+                    ?.split('=')[1];
+
+                if (!token) {
+                    window.location.replace('/Authentication/Login');
+                    return;
+                }
+
+                // Fetch user information
+                const response = await fetch('http://localhost:5171/api/Account/user-info', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    console.log('User data:', userData);
+                    document.getElementById('userInfo').innerHTML = `
+                        <p><strong>Email:</strong> ${userData.email}</p>
+                        <p><strong>Role:</strong> ${userData.role}</p>
+                    `;
+                } else {
+                    console.error('Failed to fetch user info:', response.status);
+                    if (response.status === 401) {
+                        deleteCookie('accessToken');
+                        window.location.replace('/Authentication/Login');
+                    } else {
+                        document.getElementById('userInfo').innerHTML = `
+                            <p class="error">Failed to load user information</p>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('userInfo').innerHTML = `
+                    <p class="error">An error occurred while loading user information</p>
+                `;
+            }
+        });
+    </script>
+} 

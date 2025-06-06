@@ -20,14 +20,34 @@ namespace LTWNC.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<LoginResponseModle>> Login(LoginRequestModel request)
         {
-            Console.WriteLine($"[DEBUG] Received email: {request.Email}, password: {request.Password}");
+            
             var result = await _jwtServices.Authenticate(request);
+            Console.WriteLine($"[DEBUG] Authentication result: {(result != null ? "Success" : "Failed")}");
 
             if (result == null)
             {
                 return Unauthorized(new { message = "Invalid email or password." });
             }
             return Ok(result);
+        }
+
+        [Authorize]
+        [HttpGet("user-info")]
+        public async Task<ActionResult<object>> GetUserInfo()
+        {
+            var email = User.Identity?.Name;
+            if (string.IsNullOrEmpty(email))
+            {
+                return Unauthorized();
+            }
+
+            var role = User.Claims.FirstOrDefault(c => c.Type == "role")?.Value;
+
+            return Ok(new
+            {
+                email,
+                role
+            });
         }
     }
 }

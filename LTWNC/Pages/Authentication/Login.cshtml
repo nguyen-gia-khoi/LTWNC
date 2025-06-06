@@ -1,0 +1,89 @@
+@page
+@model LTWNC.Pages.Authentication.LoginModel
+
+<link rel="stylesheet" href="~/css/login.css" />
+
+<div class="login-container">
+    <div class="login-form">
+        <h2>Welcome Back</h2>
+        <form id="loginForm" onsubmit="return false;">
+            <div class="form-group">
+                <input type="email" id="email" placeholder="Email" required />
+            </div>
+            <div class="form-group">
+                <input type="password" id="password" placeholder="Password" required />
+            </div>
+            <button type="submit" class="login-button">Login</button>
+        </form>
+        <div id="error" class="error-message"></div>
+    </div>
+</div>
+
+<script>
+    // Kiểm tra xem script có được load không
+    console.log('Login script loaded');
+    
+    // Đợi DOM load xong
+    document.addEventListener('DOMContentLoaded', function() {
+        // Kiểm tra xem form có tồn tại không
+        const loginForm = document.getElementById('loginForm');
+        if (!loginForm) {
+            console.error('Login form not found!');
+            return;
+        }
+        console.log('Login form found');
+
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault(); // Prevent form from submitting normally
+            console.log('Form submitted');
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('error');
+            
+            console.log('Attempting to login with:', { email, password });
+            
+            try {
+                const res = await fetch('http://localhost:5171/api/Account/login', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                console.log('Response status:', res.status);
+                const responseText = await res.text();
+                console.log('Raw response:', responseText);
+
+                if (res.ok) {
+                    const data = JSON.parse(responseText);
+                    console.log('Login success, full response:', data);
+
+                    // Set cookie with proper attributes
+                    const expirationDate = new Date();
+                    expirationDate.setDate(expirationDate.getDate() + 7); // Cookie expires in 7 days
+                    
+                    // Log the token before setting cookie
+                    console.log('Token to be set:', data.accessToken);
+                    
+                    // Set cookie with proper attributes
+                    document.cookie = `accessToken=${data.accessToken}; path=/; expires=${expirationDate.toUTCString()}; secure; samesite=strict`;
+                    
+                    // Verify cookie was set
+                    console.log('Current cookies:', document.cookie);
+                    
+                    // Redirect to homepage
+                    window.location.href = '/Home/Index';
+                } else {
+                    const errorData = JSON.parse(responseText);
+                    errorDiv.textContent = errorData.message || 'Invalid email or password';
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                errorDiv.textContent = 'An error occurred. Please try again.';
+            }
+        });
+    });
+</script> 
