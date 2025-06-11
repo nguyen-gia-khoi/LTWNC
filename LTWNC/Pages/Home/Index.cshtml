@@ -71,57 +71,49 @@
     }
 </style>
 
-@section Scripts {
     <script>
-        function deleteCookie(name) {
-            // Lấy domain hiện tại
-            const domain = window.location.hostname;
-            
-            // Xóa cookie với các thuộc tính khác nhau
-            const paths = ['/', '/Home', '/Authentication'];
-            const domains = [domain, '.' + domain, ''];
-            
-            paths.forEach(path => {
-                domains.forEach(domain => {
-                    let cookieString = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path}`;
-                    if (domain) {
-                        cookieString += `; domain=${domain}`;
-                    }
-                    cookieString += '; secure; samesite=strict';
-                    document.cookie = cookieString;
-                });
+        function deleteAllCookies() {
+            document.cookie.split(';').forEach(cookie => {
+                const eqPos = cookie.indexOf('=');
+                const name = eqPos > -1 ? cookie.substring(0, eqPos) : cookie;
+                document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT';
             });
         }
 
-        document.addEventListener('DOMContentLoaded', async function() {
-            // Thêm event listener cho nút logout
-            document.getElementById('logoutButton').addEventListener('click', function() {
-                console.log('Logout button clicked');
-                console.log('Before logout - Cookies:', document.cookie);
-                
-                // Xóa cookie accessToken
-                deleteCookie('accessToken');
-                
-                console.log('After logout - Cookies:', document.cookie);
-                
-                // Chuyển hướng về trang login
-                window.location.replace('/Authentication/Login');
+        document.addEventListener('DOMContentLoaded', async function () {
+            const logoutBtn = document.getElementById('logoutButton');
+            if (!logoutBtn) {
+                console.error('[Logout] Không tìm thấy nút Logout!');
+                return;
+            }
+
+            logoutBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                console.log('[Logout] Nút được click');
+
+                console.log('[Logout] Trước khi xóa cookie:', document.cookie);
+                deleteAllCookies()
+
+                setTimeout(() => {
+                    console.log('[Logout] Sau khi xóa cookie:', document.cookie);
+                    window.location.replace('/');
+                }, 300);
             });
 
+            // Lấy token từ cookie
+            const token = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('accessToken='))
+                ?.split('=')[1];
+
+            if (!token) {
+                console.warn('[Auth] Không tìm thấy token. Redirect...');
+                window.location.replace('/Authentication/Login');
+                return;
+            }
+
             try {
-                // Get the token from cookie
-                const token = document.cookie
-                    .split('; ')
-                    .find(row => row.startsWith('accessToken='))
-                    ?.split('=')[1];
-
-                if (!token) {
-                    window.location.replace('/Authentication/Login');
-                    return;
-                }
-
-                // Fetch user information
-                const response = await fetch('http://localhost:5171/api/Account/user-info', {
+                const response = await fetch('https://localhost:5171/api/Account/user-info', {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Accept': 'application/json'
@@ -130,28 +122,28 @@
 
                 if (response.ok) {
                     const userData = await response.json();
-                    console.log('User data:', userData);
+                    console.log('[UserInfo] Loaded:', userData);
                     document.getElementById('userInfo').innerHTML = `
                         <p><strong>Email:</strong> ${userData.email}</p>
                         <p><strong>Role:</strong> ${userData.role}</p>
                     `;
                 } else {
-                    console.error('Failed to fetch user info:', response.status);
+                    console.error('[UserInfo] Lỗi fetch user-info:', response.status);
                     if (response.status === 401) {
                         deleteCookie('accessToken');
                         window.location.replace('/Authentication/Login');
                     } else {
                         document.getElementById('userInfo').innerHTML = `
-                            <p class="error">Failed to load user information</p>
+                            <p class="error">Lỗi tải thông tin người dùng</p>
                         `;
                     }
                 }
-            } catch (error) {
-                console.error('Error:', error);
+            } catch (err) {
+                console.error('[UserInfo] Exception:', err);
                 document.getElementById('userInfo').innerHTML = `
-                    <p class="error">An error occurred while loading user information</p>
+                    <p class="error">Lỗi kết nối server</p>
                 `;
             }
         });
     </script>
-} 
+
