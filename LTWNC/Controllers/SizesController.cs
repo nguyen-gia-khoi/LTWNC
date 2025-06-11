@@ -10,11 +10,11 @@ namespace LTWNC.Controllers
     [ApiController]
     public class SizesController : ControllerBase
     {
-        private readonly IMongoCollection<Sizes>? _sizes;
+        private readonly IMongoCollection<Sizes> _sizes;
 
         public SizesController(MongoDbService mongoDbService)
         {
-            _sizes = mongoDbService.Database?.GetCollection<Sizes>("sizes");
+            _sizes = mongoDbService.Database.GetCollection<Sizes>("sizes");
         }
 
         [HttpGet]
