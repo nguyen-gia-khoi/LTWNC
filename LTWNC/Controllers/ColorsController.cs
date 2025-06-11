@@ -11,11 +11,11 @@ namespace LTWNC.Controllers
     [ApiController]
     public class ColorsController : ControllerBase
     {
-        private readonly IMongoCollection<Colors>? _colors;
+        private readonly IMongoCollection<Colors> _colors;
 
         public ColorsController(MongoDbService mongoDbService) 
         {
-            _colors = mongoDbService.Database?.GetCollection<Colors>("colors");
+            _colors = mongoDbService.Database.GetCollection<Colors>("colors");
         }
 
         [HttpGet]
