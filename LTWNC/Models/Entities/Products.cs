@@ -1,4 +1,4 @@
-﻿namespace LTWNC.Entities
+﻿namespace LTWNC.Models.Entities
 {
     public class Products
     {

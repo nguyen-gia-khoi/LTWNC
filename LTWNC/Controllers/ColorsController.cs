@@ -1,5 +1,5 @@
 ﻿using LTWNC.Data;
-using LTWNC.Entities;
+using LTWNC.Models.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;

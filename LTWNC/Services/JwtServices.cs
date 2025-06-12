@@ -1,7 +1,7 @@
-﻿using LTWNC.API;
-using LTWNC.Data;
-using LTWNC.Entities;
+﻿using LTWNC.Data;
 using LTWNC.Middleware;
+using LTWNC.Models.API;
+using LTWNC.Models.Entities;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
 using System.IdentityModel.Tokens.Jwt;

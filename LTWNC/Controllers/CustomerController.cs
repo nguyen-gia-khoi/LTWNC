@@ -2,11 +2,11 @@
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using LTWNC.Data;
-using LTWNC.Entities;
 using MongoDB.Bson;
 using System.Text.Json;
 using LTWNC.Middleware;
 using Microsoft.AspNetCore.Authorization;
+using LTWNC.Models.Entities;
 
 namespace LTWNC.Controllers
 {

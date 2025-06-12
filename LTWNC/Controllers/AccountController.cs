@@ -1,4 +1,4 @@
-﻿using LTWNC.API;
+﻿using LTWNC.Models.API;
 using LTWNC.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
