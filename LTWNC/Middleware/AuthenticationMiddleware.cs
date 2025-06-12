@@ -22,7 +22,7 @@ namespace LTWNC.Middleware
                 if (string.IsNullOrEmpty(token))
                 {
                     // Nếu không có token, chuyển hướng về trang Login
-                    context.Response.Redirect("/Authentication/Login");
+                    context.Response.Redirect("/");
                     return;
                 }
             }

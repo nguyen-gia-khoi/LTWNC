@@ -2,7 +2,7 @@
 using MongoDB.Bson.Serialization.Attributes;
 using System.Text.Json.Serialization;
 
-namespace LTWNC.Entities
+namespace LTWNC.Models.Entities
 {
     [BsonIgnoreExtraElements]
     public class Users

@@ -1,4 +1,4 @@
-﻿ namespace LTWNC.API
+﻿namespace LTWNC.Models.API
 {
     public class LoginRequestModel
     {

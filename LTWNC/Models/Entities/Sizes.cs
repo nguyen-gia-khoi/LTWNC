@@ -1,7 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace LTWNC.Entities
+namespace LTWNC.Models.Entities
 {
     public class Sizes
     {
