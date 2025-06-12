@@ -27,7 +27,7 @@ namespace LTWNC.Models.Entities
         [BsonElement("role")]
         [BsonRepresentation(BsonType.String)]
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        public Role Role { get; set; }
+        public Role Role { get; set; } = Role.User;
 
         [BsonElement("gender")]
         [JsonConverter(typeof(JsonStringEnumConverter))]
