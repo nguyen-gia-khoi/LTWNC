@@ -133,6 +133,7 @@
 
 using LTWNC.Data;
 using LTWNC.Middleware;
+using LTWNC.Models;
 using LTWNC.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -147,6 +148,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Home");
     options.Conventions.AllowAnonymousToPage("/Authentication/Login");
 });
+builder.Services.Configure<AppSettings>(builder.Configuration.GetSection("AppSettings"));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

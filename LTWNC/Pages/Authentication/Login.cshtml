@@ -4,6 +4,9 @@
 }
 
 @model LTWNC.Pages.Authentication.LoginModel
+@using LTWNC.Models
+@using Microsoft.Extensions.Options
+@inject IOptions<AppSettings> AppOptions
 
 <link rel="stylesheet" href="~/css/login.css" />
 
@@ -22,7 +25,9 @@
         <div id="error" class="error-message"></div>
     </div>
 </div>
-
+<script>
+    const BASE_URL = '@AppOptions.Value.BaseUrl';
+</script>
 <script>
     // Kiểm tra xem script có được load không
     console.log('Login script loaded');
@@ -48,14 +53,15 @@
             console.log('Attempting to login with:', { email, password });
             
             try {
-                const res = await fetch('https://localhost:5171/api/Account/login', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ email, password })
+                const res = await fetch(`${BASE_URL}/api/Account/login`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                  },
+                  body: JSON.stringify({ email, password })
                 });
+
 
                 console.log('Response status:', res.status);
                 const responseText = await res.text();
