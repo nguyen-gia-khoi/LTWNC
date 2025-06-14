@@ -1,0 +1,135 @@
+﻿@page
+@model LTWNC.Pages.Sizes.IndexModel
+
+@{
+    ViewData["Title"] = "Quản lý Size";
+}
+
+<h2>Quản lý Kích cỡ (Dùng API)</h2>
+
+<div class="input-group mb-3">
+    <input id="sizeName" class="form-control" placeholder="Nhập tên size mới" />
+    <input id="sizeCode" class="form-control" placeholder="Nhập mã size mới" />
+    <button class="btn btn-primary" onclick="addSize()">Thêm</button>
+</div>
+
+<table class="table table-bordered" id="sizeTable">
+    <thead>
+        <tr>
+            <th>Tên size</th>
+            <th>Mã size</th>
+            <th>Hành động</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+@section Scripts {
+    <script>
+        const sizeApiUrl = '/api/sizes';
+
+        async function loadSizes() {
+            const res = await fetch(sizeApiUrl);
+            const sizes = await res.json();
+
+            const tbody = document.querySelector('#sizeTable tbody');
+            tbody.innerHTML = '';
+
+            sizes.forEach(s => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><span id="name_${s.id}">${s.size_name}</span></td>
+                    <td><span id="code_${s.id}">${s.sizes_code}</span></td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="editSize('${s.id}')">Sửa</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteSize('${s.id}')">Xoá</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function editSize(id) {
+            const nameSpan = document.getElementById(`name_${id}`);
+            const codeSpan = document.getElementById(`code_${id}`);
+
+            const name = nameSpan.textContent;
+            const code = codeSpan.textContent;
+
+            nameSpan.innerHTML = `<input id="editName_${id}" class="form-control" value="${name}" />`;
+            codeSpan.innerHTML = `<input id="editCode_${id}" class="form-control" value="${code}" />`;
+
+            const btnCell = nameSpan.parentElement.nextElementSibling.nextElementSibling;
+            btnCell.innerHTML = `
+                <button class="btn btn-success btn-sm" onclick="saveSize('${id}')">Lưu</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadSizes()">Hủy</button>
+            `;
+        }
+
+        async function saveSize(id) {
+            const name = document.getElementById(`editName_${id}`).value;
+            const code = document.getElementById(`editCode_${id}`).value;
+
+            const updatedSize = {
+                id: id,
+                size_name: name,
+                sizes_code: code
+            };
+
+            const res = await fetch(`${sizeApiUrl}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedSize)
+            });
+
+            if (res.ok) {
+                alert("Cập nhật thành công");
+                loadSizes();
+            } else {
+                alert("Cập nhật thất bại");
+            }
+        }
+
+        async function addSize() {
+            const name = document.getElementById('sizeName').value.trim();
+            const code = document.getElementById('sizeCode').value.trim();
+
+            if (!name || !code) {
+                alert("Tên size và mã size không được để trống!");
+                return;
+            }
+
+            const res = await fetch(sizeApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ size_name: name, sizes_code: code })
+            });
+
+            if (res.ok) {
+                alert('Đã thêm size mới!');
+                document.getElementById('sizeName').value = '';
+                document.getElementById('sizeCode').value = '';
+                loadSizes();
+            } else {
+                alert("Thêm thất bại!");
+            }
+        }
+
+        async function deleteSize(id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa?')) return;
+
+            const res = await fetch(`${sizeApiUrl}/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                alert(`Đã xóa size ${id}`);
+                loadSizes();
+            } else {
+                alert("Xóa thất bại!");
+            }
+        }
+
+        loadSizes();
+    </script>
+}

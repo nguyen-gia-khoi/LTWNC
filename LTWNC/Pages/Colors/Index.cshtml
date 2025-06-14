@@ -1,0 +1,139 @@
+﻿@page
+@model LTWNC.Pages.Colors.IndexModel
+
+@{
+    ViewData["Title"] = "Quản lý Màu sắc";
+}
+
+<h2>Quản lý Màu sắc (Dùng API)</h2>
+
+<div class="input-group mb-3">
+    <input id="colorName" class="form-control" placeholder="Nhập tên màu mới (VD: Black)" />
+    <input id="colorCode" class="form-control" placeholder="Nhập mã màu mới (VD: #000000)" />
+    <button class="btn btn-primary" onclick="addColor()">Thêm</button>
+</div>
+
+<table class="table table-bordered" id="colorTable">
+    <thead>
+        <tr>
+            <th>Tên màu</th>
+            <th>Mã màu</th>
+            <th>Hành động</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+@section Scripts {
+    <script>
+        const colorApiUrl = '/api/colors';
+
+        async function loadColors() {
+            const res = await fetch(colorApiUrl);
+            const colors = await res.json();
+
+            const tbody = document.querySelector('#colorTable tbody');
+            tbody.innerHTML = '';
+
+            colors.forEach(c => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><span id="name_${c.id}">${c.colors_name}</span></td>
+                    <td><span id="code_${c.id}">${c.colors_code}</span></td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="editColor('${c.id}')">Sửa</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteColor('${c.id}')">Xoá</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function editColor(id) {
+            const nameSpan = document.getElementById(`name_${id}`);
+            const codeSpan = document.getElementById(`code_${id}`);
+
+            const name = nameSpan.textContent;
+            const code = codeSpan.textContent;
+
+            nameSpan.innerHTML = `<input id="editName_${id}" class="form-control" value="${name}" />`;
+            codeSpan.innerHTML = `<input id="editCode_${id}" class="form-control" value="${code}" />`;
+
+            const btnCell = nameSpan.parentElement.nextElementSibling.nextElementSibling;
+            btnCell.innerHTML = `
+                <button class="btn btn-success btn-sm" onclick="saveColor('${id}')">Lưu</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadColors()">Hủy</button>
+            `;
+        }
+
+        async function saveColor(id) {
+            const name = document.getElementById(`editName_${id}`).value.trim();
+            const code = document.getElementById(`editCode_${id}`).value.trim();
+
+            const updatedColor = {
+                colors_name: name,
+                colors_code: code
+            };
+
+            const res = await fetch(`${colorApiUrl}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedColor)
+            });
+
+            if (res.ok) {
+                alert("Cập nhật thành công");
+                loadColors();
+            } else {
+                alert("Cập nhật thất bại");
+            }
+        }
+
+        async function addColor() {
+            const name = document.getElementById('colorName').value.trim();
+            const code = document.getElementById('colorCode').value.trim();
+
+            if (!name || !code) {
+                alert("Tên màu và mã màu không được để trống!");
+                return;
+            }
+
+            const newColor = {
+                colors_name: name,
+                colors_code: code
+            };
+
+            const res = await fetch(colorApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newColor)
+            });
+
+            if (res.ok) {
+                alert('Đã thêm màu mới!');
+                document.getElementById('colorName').value = '';
+                document.getElementById('colorCode').value = '';
+                loadColors();
+            } else {
+                alert("Thêm thất bại!");
+            }
+        }
+
+        async function deleteColor(id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa?')) return;
+
+            const res = await fetch(`${colorApiUrl}/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                alert(`Đã xóa màu ${id}`);
+                loadColors();
+            } else {
+                alert("Xóa thất bại!");
+            }
+        }
+
+        loadColors();
+    </script>
+}

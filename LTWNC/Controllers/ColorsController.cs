@@ -1,9 +1,7 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
-using System.Drawing;
 
 namespace LTWNC.Controllers
 {
@@ -13,7 +11,7 @@ namespace LTWNC.Controllers
     {
         private readonly IMongoCollection<Colors> _colors;
 
-        public ColorsController(MongoDbService mongoDbService) 
+        public ColorsController(MongoDbService mongoDbService)
         {
             _colors = mongoDbService.Database.GetCollection<Colors>("colors");
         }
@@ -30,22 +28,22 @@ namespace LTWNC.Controllers
             try
             {
                 var filter = Builders<Colors>.Filter.Eq(x => x.Id, id);
-                var colors = await _colors.Find(filter).FirstOrDefaultAsync();
-                return colors is not null ? Ok(colors) : NotFound();
+                var color = await _colors.Find(filter).FirstOrDefaultAsync();
+                return color is not null ? Ok(color) : NotFound();
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error retrieving colors: {ex.Message}");
+                return StatusCode(500, $"Error retrieving color: {ex.Message}");
             }
         }
 
         [HttpPost]
-        public async Task<ActionResult> Post(Colors colors)
+        public async Task<ActionResult> Post([FromBody] Colors color)
         {
             try
             {
-                await _colors.InsertOneAsync(colors);
-                return CreatedAtAction(nameof(GetById), new { id = colors.Id }, colors);
+                await _colors.InsertOneAsync(color);
+                return CreatedAtAction(nameof(GetById), new { id = color.Id }, color);
             }
             catch (Exception ex)
             {
@@ -53,15 +51,14 @@ namespace LTWNC.Controllers
             }
         }
 
-        //UPDATE : cập nhật color
         [HttpPut("{id}")]
-        public async Task<ActionResult> Update(string id, [FromBody] Colors colors)
+        public async Task<ActionResult> Update(string id, [FromBody] Colors color)
         {
             try
             {
-                colors.Id = id; // Gán lại Id từ route cho object
+                color.Id = id;
                 var filter = Builders<Colors>.Filter.Eq(c => c.Id, id);
-                var result = await _colors.ReplaceOneAsync(filter, colors);
+                var result = await _colors.ReplaceOneAsync(filter, color);
 
                 if (result.MatchedCount == 0)
                 {
@@ -76,8 +73,6 @@ namespace LTWNC.Controllers
             }
         }
 
-
-        // DELETE: Xoá color
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(string id)
         {
