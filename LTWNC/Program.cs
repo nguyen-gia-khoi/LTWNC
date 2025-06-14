@@ -1,11 +1,12 @@
-﻿//using DnsClient.Protocol;
-//using LTWNC.Data;
+﻿//using LTWNC.Data;
 //using LTWNC.Middleware;
+//using LTWNC.Models;
 //using LTWNC.Services;
 //using Microsoft.AspNetCore.Authentication.JwtBearer;
 //using Microsoft.IdentityModel.Tokens;
 //using Microsoft.OpenApi.Models;
 //using System.Text;
+
 
 //var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,7 @@
 //    options.Conventions.AuthorizeFolder("/Home");
 //    options.Conventions.AllowAnonymousToPage("/Authentication/Login");
 //});
+//builder.Services.Configure<AppSettings>(builder.Configuration.GetSection("AppSettings"));
 
 //builder.Services.AddControllers();
 //// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -43,6 +45,8 @@
 //});
 //builder.Services.AddSingleton<MongoDbService>();
 //builder.Services.AddScoped<JwtServices>();
+//builder.Services.AddScoped<IImageService, ImageService>();
+//builder.Services.AddSingleton<IApiUrlService, ApiUrlService>();
 
 //// Configure JWT Authentication
 //builder.Services.AddAuthentication(options =>
@@ -126,11 +130,10 @@
 ////    return Task.CompletedTask;
 ////});
 
-
 //app.Run();
 
 
-
+using CloudinaryDotNet;
 using LTWNC.Data;
 using LTWNC.Middleware;
 using LTWNC.Models;
@@ -138,19 +141,42 @@ using LTWNC.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.Options;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add Razor Pages with authorization
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizeFolder("/Home");
     options.Conventions.AllowAnonymousToPage("/Authentication/Login");
 });
+
+// Add app settings
 builder.Services.Configure<AppSettings>(builder.Configuration.GetSection("AppSettings"));
 
+// ✅ Add Cloudinary settings (từ LTWNC.Models)
+builder.Services.Configure<CloudinarySettings>(
+    builder.Configuration.GetSection("CloudinarySettings"));
+
+// ✅ Add Cloudinary client
+builder.Services.AddSingleton(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<CloudinarySettings>>().Value;
+    return new Cloudinary(new Account(settings.CloudName, settings.ApiKey, settings.ApiSecret));
+});
+
+// Add services
+builder.Services.AddSingleton<MongoDbService>();
+builder.Services.AddScoped<JwtServices>();
+builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddSingleton<IApiUrlService, ApiUrlService>();
+
+// Add controllers
 builder.Services.AddControllers();
+
+// Add Swagger + JWT support
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -168,6 +194,7 @@ builder.Services.AddSwaggerGen(options =>
             Id = JwtBearerDefaults.AuthenticationScheme
         }
     };
+
     options.AddSecurityDefinition("Bearer", jwtSecurityScheme);
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
@@ -175,10 +202,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddSingleton<MongoDbService>();
-builder.Services.AddScoped<JwtServices>();
-
-// Cấu hình JWT
+// JWT Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -198,11 +222,11 @@ builder.Services.AddAuthentication(options =>
             Encoding.ASCII.GetBytes(builder.Configuration["JwtConfig:Key"]))
     };
 
+    // Get token from cookie
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
-            // Lấy token từ cookie accessToken
             var accessToken = context.Request.Cookies["accessToken"];
             if (!string.IsNullOrEmpty(accessToken))
             {
@@ -215,47 +239,39 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Cấu hình CORS chỉ cho phép Razor Pages truy cập
+// CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", builder =>
+    options.AddPolicy("AllowAll", builder =>
     {
-        builder.WithOrigins("https://localhost:7009")
-               .AllowAnyHeader()
+        builder.AllowAnyOrigin()
                .AllowAnyMethod()
-               .AllowCredentials(); // Nếu frontend gửi cookie
+               .AllowAnyHeader();
     });
 });
 
 var app = builder.Build();
 
-// Bật Swagger trong môi trường Dev
+// Development tools
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// Redirect HTTP => HTTPS
 app.UseHttpsRedirection();
-
-// Cho phép đọc file tĩnh (CSS/JS...)
 app.UseStaticFiles();
-
-// Routing
 app.UseRouting();
 
-// CORS phải đặt trước Authentication
-app.UseCors("AllowFrontend");
+// CORS
+app.UseCors("AllowAll");
 
-// Middleware xác thực custom
+// Middleware
 app.UseMiddleware<AuthenticationMiddleware>();
 
-// Xác thực và phân quyền
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Mapping Razor Pages và Controllers
 app.MapRazorPages();
 app.MapControllers();
 

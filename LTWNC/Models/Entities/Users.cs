@@ -36,6 +36,10 @@ namespace LTWNC.Models.Entities
         [BsonElement("phoneNumber")]
         [JsonPropertyName("phoneNumber")]
         public string? PhoneNumber { get; set; }
+
+        [BsonElement("createdAt")]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
     public enum Role
