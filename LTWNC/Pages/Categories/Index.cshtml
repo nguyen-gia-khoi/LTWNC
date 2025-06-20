@@ -1,0 +1,143 @@
+﻿@page
+@model LTWNC.Pages.Categories.IndexModel
+
+@{
+    ViewData["Title"] = "Quản lý Danh mục";
+}
+
+<h2>Quản lý Danh mục (Dùng API)</h2>
+
+<div class="input-group mb-3">
+    <input id="categoryName" class="form-control" placeholder="Nhập tên danh mục mới" />
+    <input id="categoryCode" class="form-control" placeholder="Nhập mã danh mục mới" />
+    <button class="btn btn-primary" onclick="addCategory()">Thêm</button>
+</div>
+
+<table class="table table-bordered" id="categoryTable">
+    <thead>
+        <tr>
+            <th>Tên danh mục</th>
+            <th>Mã Danh Mục</th>
+            <th>Hành động</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+@section Scripts {
+    <script>
+        const categoryApiUrl = '/api/categories';
+
+        async function loadCategories() {
+            const res = await fetch(categoryApiUrl);
+            const categories = await res.json();
+
+            const tbody = document.querySelector('#categoryTable tbody');
+            tbody.innerHTML = '';
+
+            categories.forEach(c => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><span id="name_${c.id}">${c.categories_name}</span></td>
+                    <td><span id="code_${c.id}">${c.categories_code}</span></td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="editCategory('${c.id}')">Sửa</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCategory('${c.id}')">Xoá</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function editCategory(id) {
+            const nameSpan = document.getElementById(`name_${id}`);
+            const codeSpan = document.getElementById(`code_${id}`);
+
+            const name = nameSpan.textContent;
+            const code = codeSpan.textContent;
+
+            nameSpan.innerHTML = `<input id="editName_${id}" class="form-control" value="${name}" />`;
+            codeSpan.innerHTML = `<input id="editCode_${id}" class="form-control" value="${code}" />`;
+
+            const btnCell = nameSpan.parentElement.parentElement.querySelector("td:last-child");
+            btnCell.innerHTML = `
+                <button class="btn btn-success btn-sm" onclick="saveCategory('${id}')">Lưu</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadCategories()">Hủy</button>
+            `;
+        }
+
+        async function saveCategory(id) {
+            const name = document.getElementById(`editName_${id}`).value.trim();
+            const code = document.getElementById(`editCode_${id}`).value.trim();
+
+            if (!name || !code) {
+                alert("Tên và mã danh mục không được để trống!");
+                return;
+            }
+
+            const updated = {
+                id: id,
+                categories_name: name,
+                categories_code: code
+            };
+
+            const res = await fetch(`${categoryApiUrl}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updated)
+            });
+
+            if (res.ok) {
+                alert("Cập nhật thành công");
+                loadCategories();
+            } else {
+                alert("Cập nhật thất bại");
+            }
+        }
+
+        async function addCategory() {
+            const name = document.getElementById('categoryName').value.trim();
+            const code = document.getElementById('categoryCode').value.trim();
+
+            if (!name || !code) {
+                alert("Vui lòng nhập đầy đủ tên và mã danh mục!");
+                return;
+            }
+
+            const res = await fetch(categoryApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    categories_name: name,
+                    categories_code: code
+                })
+            });
+
+            if (res.ok) {
+                alert('Đã thêm danh mục mới!');
+                document.getElementById('categoryName').value = '';
+                document.getElementById('categoryCode').value = '';
+                loadCategories();
+            } else {
+                alert("Thêm thất bại!");
+            }
+        }
+
+        async function deleteCategory(id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa?')) return;
+
+            const res = await fetch(`${categoryApiUrl}/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                alert(`Đã xóa danh mục ${id}`);
+                loadCategories();
+            } else {
+                alert("Xóa thất bại!");
+            }
+        }
+
+        loadCategories();
+    </script>
+}
