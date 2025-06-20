@@ -88,6 +88,20 @@ namespace LTWNC.Controllers
                 items = products
             });
         }
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Product?>> GetProductById( string id)
+        {
+            try
+            {
+                var filter = Builders<Product>.Filter.Eq(x => x.Id, id);
+                var customer = await _products.Find(filter).FirstOrDefaultAsync();
+                return customer is not null ? Ok(customer) : NotFound();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error retrieving customer: {ex.Message}");
+            }
+        }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct([FromRoute] string id)
@@ -102,26 +116,49 @@ namespace LTWNC.Controllers
 
 
         [HttpPut("{id}")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> UpdateProduct(
-            [FromRoute] string id,
-            [FromBody] Product updatedProduct)
+    [FromRoute] string id,
+    [FromForm] string name,
+    [FromForm] decimal price,
+    [FromForm] string? description,
+    [FromForm] string variantsJson,
+    [FromForm] List<IFormFile> images,
+    [FromForm] string? categoryId,
+    [FromServices] IImageService imageService)
         {
-            var filter = Builders<Product>.Filter.Eq(p => p.Id, id);
-
-            var update = Builders<Product>.Update
-                .Set(p => p.Name, updatedProduct.Name)
-                .Set(p => p.Price, updatedProduct.Price)
-                .Set(p => p.Description, updatedProduct.Description)
-                .Set(p => p.Variants, updatedProduct.Variants)
-                .Set(p => p.Images, updatedProduct.Images)
-                .Set(p => p.CategoryId, updatedProduct.CategoryId);
-            var result = await _products.UpdateOneAsync(filter, update);
-
-            if (result.MatchedCount == 0)
+            var existing = await _products.Find(p => p.Id == id).FirstOrDefaultAsync();
+            if (existing == null)
                 return NotFound(new { message = "Product not found" });
 
-            return Ok(new { message = "Product updated successfully" });
+            // Parse variants
+            List<ProductVariant> variants;
+            try
+            {
+                variants = JsonSerializer.Deserialize<List<ProductVariant>>(variantsJson);
+            }
+            catch
+            {
+                return BadRequest("Invalid variants format");
+            }
+
+            // Upload ảnh mới nếu có
+            var imageUrls = images.Count > 0
+                ? await imageService.UploadImagesAsync(images, "products")
+                : existing.Images;
+
+            var update = Builders<Product>.Update
+                .Set(p => p.Name, name)
+                .Set(p => p.Price, price)
+                .Set(p => p.Description, description)
+                .Set(p => p.CategoryId, categoryId)
+                .Set(p => p.Variants, variants)
+                .Set(p => p.Images, imageUrls);
+
+            var result = await _products.UpdateOneAsync(p => p.Id == id, update);
+            return Ok(new { message = "Updated successfully" });
         }
+
 
     }
 }
