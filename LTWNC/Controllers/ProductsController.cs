@@ -28,6 +28,7 @@ namespace LTWNC.Controllers
             [FromForm] string? description,
             [FromForm] string variantsJson,
             [FromForm] List<IFormFile> images,
+            [FromForm] string? categoryId,
             [FromServices] IImageService imageService)
         {
             // Parse variants từ JSON
@@ -51,7 +52,8 @@ namespace LTWNC.Controllers
                 Price = price,
                 Description = description,
                 Images = imageUrls,
-                Variants = variants
+                Variants = variants,
+                CategoryId = categoryId,
             };
 
             await _products.InsertOneAsync(product);
@@ -111,7 +113,8 @@ namespace LTWNC.Controllers
                 .Set(p => p.Price, updatedProduct.Price)
                 .Set(p => p.Description, updatedProduct.Description)
                 .Set(p => p.Variants, updatedProduct.Variants)
-                .Set(p => p.Images, updatedProduct.Images);
+                .Set(p => p.Images, updatedProduct.Images)
+                .Set(p => p.CategoryId, updatedProduct.CategoryId);
             var result = await _products.UpdateOneAsync(filter, update);
 
             if (result.MatchedCount == 0)
