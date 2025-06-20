@@ -24,6 +24,8 @@ namespace LTWNC.Models.Entities
         [BsonElement("variants")]
         public List<ProductVariant>? Variants { get; set; } // size + color + quantity
 
+        [BsonElement("categoryId")]
+        public string? CategoryId { get; set; } // ID của category
         [BsonElement("createdAt")]
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
