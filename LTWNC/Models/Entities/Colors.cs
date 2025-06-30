@@ -19,7 +19,9 @@ namespace LTWNC.Models.Entities
             [BsonElement("colors_code")]
             [JsonPropertyName("colors_code")]  // 👈 JSON cần có field "colors_code"
             public string? ColorsCode { get; set; }
-        
 
+        [BsonElement("createdAt")]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

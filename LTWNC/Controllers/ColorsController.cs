@@ -17,19 +17,55 @@ namespace LTWNC.Controllers
         }
 
         [HttpGet]
-        public async Task<IEnumerable<Colors>> Get()
+        public async Task<IActionResult> GetPagedColors(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            return await _colors.Find(FilterDefinition<Colors>.Empty).ToListAsync();
+            if (page <= 0 || pageSize <= 0)
+                return BadRequest("Page and PageSize must be greater than 0");
+
+            var skip = (page - 1) * pageSize;
+
+            var totalCount = await _colors.CountDocumentsAsync(FilterDefinition<Colors>.Empty);
+
+            var colors = await _colors
+                .Find(FilterDefinition<Colors>.Empty)
+                .SortByDescending(c => c.CreatedAt)
+                .Skip(skip)
+                .Limit(pageSize)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                currentPage = page,
+                pageSize = pageSize,
+                totalItems = totalCount,
+                totalPages = (int)Math.Ceiling((double)totalCount / pageSize),
+                items = colors
+            });
+        }
+
+        [HttpGet("all")]
+        public async Task<IEnumerable<Colors>> GetAllColors()
+        {
+            return await _colors
+                .Find(FilterDefinition<Colors>.Empty)
+                .SortByDescending(c => c.CreatedAt)
+                .ToListAsync();
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Colors?>> GetById(string id)
+        public async Task<ActionResult<Colors>> GetById(string id)
         {
             try
             {
                 var filter = Builders<Colors>.Filter.Eq(x => x.Id, id);
                 var color = await _colors.Find(filter).FirstOrDefaultAsync();
-                return color is not null ? Ok(color) : NotFound();
+
+                if (color == null)
+                    return NotFound();
+
+                return Ok(color);
             }
             catch (Exception ex)
             {
@@ -40,8 +76,14 @@ namespace LTWNC.Controllers
         [HttpPost]
         public async Task<ActionResult> Post([FromBody] Colors color)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
+                if (color.CreatedAt == default)
+                    color.CreatedAt = DateTime.UtcNow;
+
                 await _colors.InsertOneAsync(color);
                 return CreatedAtAction(nameof(GetById), new { id = color.Id }, color);
             }
@@ -54,6 +96,9 @@ namespace LTWNC.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult> Update(string id, [FromBody] Colors color)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
                 color.Id = id;

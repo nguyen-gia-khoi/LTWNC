@@ -18,5 +18,9 @@ namespace LTWNC.Models.Entities
         [BsonElement("sizes_code")]
         [JsonPropertyName("sizes_code")]
         public string? SizesCode { get; set; }
+
+        [BsonElement("createdAt")]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

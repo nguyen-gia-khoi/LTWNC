@@ -1,6 +1,5 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -18,12 +17,43 @@ namespace LTWNC.Controllers
         }
 
         [HttpGet]
-        public async Task<IEnumerable<Sizes>> Get()
+        public async Task<IActionResult> GetPagedSizes(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            return await _sizes.Find(FilterDefinition<Sizes>.Empty).ToListAsync();
+            if (page <= 0 || pageSize <= 0)
+                return BadRequest("Page and pageSize must be greater than 0");
+
+            var skip = (page - 1) * pageSize;
+
+            var totalCount = await _sizes.CountDocumentsAsync(FilterDefinition<Sizes>.Empty);
+
+            var sizes = await _sizes
+                .Find(FilterDefinition<Sizes>.Empty)
+                .SortByDescending(s => s.CreatedAt)
+                .Skip(skip)
+                .Limit(pageSize)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                currentPage = page,
+                pageSize = pageSize,
+                totalItems = totalCount,
+                totalPages = (int)Math.Ceiling((double)totalCount / pageSize),
+                items = sizes
+            });
         }
 
-        // GET: api/sizes/{id}
+        [HttpGet("all")]
+        public async Task<IEnumerable<Sizes>> GetAllSizes()
+        {
+            return await _sizes
+                .Find(FilterDefinition<Sizes>.Empty)
+                .SortByDescending(s => s.CreatedAt)
+                .ToListAsync();
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<Sizes?>> GetById(string id)
         {
@@ -39,12 +69,18 @@ namespace LTWNC.Controllers
             }
         }
 
-        // POST: api/sizes
         [HttpPost]
         public async Task<ActionResult> Post([FromBody] Sizes sizes)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
+                // Gán CreatedAt nếu chưa có
+                if (sizes.CreatedAt == default)
+                    sizes.CreatedAt = DateTime.UtcNow;
+
                 await _sizes.InsertOneAsync(sizes);
                 return CreatedAtAction(nameof(GetById), new { id = sizes.Id }, sizes);
             }
@@ -54,10 +90,12 @@ namespace LTWNC.Controllers
             }
         }
 
-        // PUT: api/sizes/{id}
         [HttpPut("{id}")]
         public async Task<ActionResult> Update(string id, [FromBody] Sizes sizes)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
                 sizes.Id = id;
@@ -66,7 +104,7 @@ namespace LTWNC.Controllers
 
                 if (result.MatchedCount == 0)
                 {
-                    return NotFound($"Size with ID {id} not found1.");
+                    return NotFound($"Size with ID {id} not found.");
                 }
 
                 return Ok($"Size with ID {id} updated successfully.");
@@ -77,7 +115,6 @@ namespace LTWNC.Controllers
             }
         }
 
-        // DELETE: api/sizes/{id}
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(string id)
         {
