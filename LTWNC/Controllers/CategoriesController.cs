@@ -19,9 +19,32 @@ namespace LTWNC.Controllers
         }
 
         [HttpGet]
-        public async Task<IEnumerable<Categories>> Get()
+        public async Task<IActionResult> GetPagedCategories(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            return await _categories.Find(FilterDefinition<Categories>.Empty).ToListAsync();
+            if (page <= 0 || pageSize <= 0)
+                return BadRequest("Page and PageSize must be greater than 0");
+
+            var skip = (page - 1) * pageSize;
+
+            var totalCount = await _categories.CountDocumentsAsync(FilterDefinition<Categories>.Empty);
+
+            var categories = await _categories
+                .Find(FilterDefinition<Categories>.Empty)
+                .SortByDescending(c => c.CreatedAt)
+                .Skip(skip)
+                .Limit(pageSize)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                currentPage = page,
+                pageSize = pageSize,
+                totalItems = totalCount,
+                totalPages = (int)Math.Ceiling((double)totalCount / pageSize),
+                items = categories
+            });
         }
 
 

@@ -24,13 +24,22 @@
     <tbody></tbody>
 </table>
 
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <button id="prevBtn" class="btn btn-secondary">◀️ Trang trước</button>
+    <span id="pageInfo"></span>
+    <button id="nextBtn" class="btn btn-secondary">Trang sau ▶️</button>
+</div>
+
 @section Scripts {
     <script>
         const sizeApiUrl = '/api/sizes';
+        let currentPage = 1;
+        const pageSize = 5;
 
-        async function loadSizes() {
-            const res = await fetch(sizeApiUrl);
-            const sizes = await res.json();
+        async function loadSizes(page = 1) {
+            const res = await fetch(`${sizeApiUrl}?page=${page}&pageSize=${pageSize}`);
+            const data = await res.json();
+            const sizes = data.items;
 
             const tbody = document.querySelector('#sizeTable tbody');
             tbody.innerHTML = '';
@@ -47,6 +56,14 @@
                 `;
                 tbody.appendChild(row);
             });
+
+            // Cập nhật phân trang
+            currentPage = data.currentPage;
+            const totalPages = data.totalPages;
+
+            document.getElementById('pageInfo').innerText = `Trang ${currentPage} / ${totalPages}`;
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
         }
 
         function editSize(id) {
@@ -62,13 +79,13 @@
             const btnCell = nameSpan.parentElement.nextElementSibling.nextElementSibling;
             btnCell.innerHTML = `
                 <button class="btn btn-success btn-sm" onclick="saveSize('${id}')">Lưu</button>
-                <button class="btn btn-secondary btn-sm" onclick="loadSizes()">Hủy</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadSizes(${currentPage})">Hủy</button>
             `;
         }
 
         async function saveSize(id) {
-            const name = document.getElementById(`editName_${id}`).value;
-            const code = document.getElementById(`editCode_${id}`).value;
+            const name = document.getElementById(`editName_${id}`).value.trim();
+            const code = document.getElementById(`editCode_${id}`).value.trim();
 
             const updatedSize = {
                 id: id,
@@ -84,7 +101,7 @@
 
             if (res.ok) {
                 alert("Cập nhật thành công");
-                loadSizes();
+                loadSizes(currentPage);
             } else {
                 alert("Cập nhật thất bại");
             }
@@ -109,7 +126,7 @@
                 alert('Đã thêm size mới!');
                 document.getElementById('sizeName').value = '';
                 document.getElementById('sizeCode').value = '';
-                loadSizes();
+                loadSizes(currentPage);
             } else {
                 alert("Thêm thất bại!");
             }
@@ -124,12 +141,23 @@
 
             if (res.ok) {
                 alert(`Đã xóa size ${id}`);
-                loadSizes();
+                loadSizes(currentPage);
             } else {
                 alert("Xóa thất bại!");
             }
         }
 
-        loadSizes();
+        // Gán sự kiện và load ban đầu
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('prevBtn').addEventListener('click', () => {
+                if (currentPage > 1) loadSizes(currentPage - 1);
+            });
+
+            document.getElementById('nextBtn').addEventListener('click', () => {
+                loadSizes(currentPage + 1);
+            });
+
+            loadSizes();
+        });
     </script>
 }

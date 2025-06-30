@@ -72,8 +72,8 @@
 
         async function loadDropdowns() {
             const [colorRes, sizeRes, categoryRes] = await Promise.all([
-                fetch('/api/colors'),
-                fetch('/api/sizes'),
+                fetch('/api/colors/all'),
+                fetch('/api/sizes/all'),
                 fetch('/api/categories')
             ]);
 
