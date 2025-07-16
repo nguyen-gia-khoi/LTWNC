@@ -158,7 +158,5 @@ namespace LTWNC.Controllers
             var result = await _products.UpdateOneAsync(p => p.Id == id, update);
             return Ok(new { message = "Updated successfully" });
         }
-
-
     }
 }

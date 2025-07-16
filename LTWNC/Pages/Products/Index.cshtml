@@ -74,7 +74,7 @@
             const [colorRes, sizeRes, categoryRes] = await Promise.all([
                 fetch('/api/colors/all'),
                 fetch('/api/sizes/all'),
-                fetch('/api/categories')
+                fetch('/api/categories/all')
             ]);
 
             const colors = await colorRes.json();
@@ -234,22 +234,27 @@
 
 
 
-        document.getElementById("createForm").addEventListener("submit", async function (e) {
+                document.getElementById("createForm").addEventListener("submit", async function (e) {
             e.preventDefault();
+
+            // Đảm bảo luôn update giá trị variantsJson trước khi submit
+            document.getElementById('variantsJson').value = JSON.stringify(variantList);
+
             const formData = new FormData(this);
-                    let url = "/api/products";
-        let method = "POST";
 
-        if (editingProductId) {
-            url += `/${editingProductId}`;
-            method = "PUT";
-            formData.append("id", editingProductId); // Tuỳ backend có cần hay không
-        }
+            let url = "/api/products";
+            let method = "POST";
 
-        const res = await fetch(url, {
-            method,
-            body: formData
-        });
+            if (editingProductId) {
+                url += `/${editingProductId}`;
+                method = "PUT";
+                formData.append("id", editingProductId); // Tuỳ backend có cần hay không
+            }
+
+            const res = await fetch(url, {
+                method,
+                body: formData
+            });
 
             if (res.ok) {
                 editingProductId = null;
