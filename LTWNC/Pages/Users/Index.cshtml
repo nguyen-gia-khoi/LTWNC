@@ -1,0 +1,185 @@
+﻿@page
+@model LTWNC.Pages.Users.IndexModel
+
+@{
+    ViewData["Title"] = "Quản lý Người dùng";
+}
+
+<h2>Quản lý Người dùng (Dùng API)</h2>
+
+<div class="input-group mb-3">
+    <input id="userName" class="form-control" placeholder="Họ tên" />
+    <input id="userEmail" class="form-control" placeholder="Email" />
+    <input id="userAge" class="form-control" placeholder="Tuổi" type="number" />
+    <input id="userPhone" class="form-control" placeholder="SĐT" />
+    <select id="userGender" class="form-select">
+        <option value="Male">Nam</option>
+        <option value="Female">Nữ</option>
+        <option value="Undefined">Khác</option>
+    </select>
+    <select id="userRole" class="form-select">
+        <option value="User">User</option>
+        <option value="Guest">Guest</option>
+    </select>
+    
+    <button class="btn btn-primary" onclick="addUser()">Thêm</button>
+</div>
+
+<table class="table table-bordered" id="userTable">
+    <thead>
+        <tr>
+            <th>Tên</th>
+            <th>Email</th>
+            <th>Tuổi</th>
+            <th>Giới tính</th>
+            <th>Vai trò</th>
+            <th>SĐT</th>
+            <th>Hành động</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div class="d-flex justify-content-between mt-3">
+    <button id="prevBtn" class="btn btn-secondary">◀️ Trang trước</button>
+    <span id="pageInfo"></span>
+    <button id="nextBtn" class="btn btn-secondary">Trang sau ▶️</button>
+</div>
+
+@section Scripts {
+    <script>
+        const userApiUrl = '/api/users';
+        let currentPage = 1;
+        const pageSize = 5;
+
+        async function loadUsers(page = 1) {
+            const res = await fetch(`${userApiUrl}?page=${page}&pageSize=${pageSize}`);
+            const data = await res.json();
+            const users = data.items;
+
+            const tbody = document.querySelector('#userTable tbody');
+            tbody.innerHTML = '';
+
+            users.forEach(u => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><span id="name_${u.id}">${u.customer_name}</span></td>
+                    <td><span id="email_${u.id}">${u.email}</span></td>
+                    <td><span id="age_${u.id}">${u.age}</span></td>
+                    <td><span id="gender_${u.id}">${u.gender}</span></td>
+                    <td><span id="role_${u.id}">${u.role}</span></td>
+                    <td><span id="phone_${u.id}">${u.phoneNumber}</span></td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="editUser('${u.id}')">Sửa</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">Xoá</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            currentPage = data.currentPage;
+            const totalPages = data.totalPages;
+
+            document.getElementById('pageInfo').innerText = `Trang ${currentPage} / ${totalPages}`;
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('prevBtn').addEventListener('click', () => {
+                if (currentPage > 1) loadUsers(currentPage - 1);
+            });
+
+            document.getElementById('nextBtn').addEventListener('click', () => {
+                loadUsers(currentPage + 1);
+            });
+
+            loadUsers();
+        });
+
+        async function addUser() {
+            const user = {
+                customer_name: document.getElementById('userName').value.trim(),
+                email: document.getElementById('userEmail').value.trim(),
+                age: parseInt(document.getElementById('userAge').value),
+                phoneNumber: document.getElementById('userPhone').value.trim(),
+                gender: document.getElementById('userGender').value,
+                role: document.getElementById('userRole').value,
+                password: document.getElementById('userPassword').value.trim()
+            };
+
+            if (!user.customer_name || !user.email || !user.password) {
+                alert("Tên, email, mật khẩu không được để trống!");
+                return;
+            }
+
+            const res = await fetch(userApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(user)
+            });
+
+            if (res.ok) {
+                alert("Đã thêm người dùng");
+                loadUsers(currentPage);
+            } else {
+                alert("Thêm thất bại");
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm("Bạn chắc chắn muốn xoá?")) return;
+
+            const res = await fetch(`${userApiUrl}/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                alert("Xoá thành công");
+                loadUsers(currentPage);
+            } else {
+                alert("Xoá thất bại");
+            }
+        }
+
+        function editUser(id) {
+            const fields = ["name", "email", "age", "gender", "role", "phone"];
+            fields.forEach(f => {
+                const span = document.getElementById(`${f}_${id}`);
+                const val = span.textContent;
+                span.innerHTML = `<input class="form-control" id="edit_${f}_${id}" value="${val}"/>`;
+            });
+
+            const btnCell = document.getElementById(`name_${id}`).parentElement.parentElement.querySelector("td:last-child");
+            btnCell.innerHTML = `
+                <button class="btn btn-success btn-sm" onclick="saveUser('${id}')">Lưu</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadUsers(${currentPage})">Hủy</button>
+            `;
+        }
+
+        async function saveUser(id) {
+            const updated = {
+                id: id,
+                customer_name: document.getElementById(`edit_name_${id}`).value.trim(),
+                email: document.getElementById(`edit_email_${id}`).value.trim(),
+                age: parseInt(document.getElementById(`edit_age_${id}`).value),
+                gender: document.getElementById(`edit_gender_${id}`).value.trim(),
+                role: document.getElementById(`edit_role_${id}`).value.trim(),
+                phoneNumber: document.getElementById(`edit_phone_${id}`).value.trim()
+            };
+
+            const res = await fetch(`${userApiUrl}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updated)
+            });
+
+            if (res.ok) {
+                alert("Cập nhật thành công");
+                loadUsers(currentPage);
+            } else {
+                alert("Cập nhật thất bại");
+            }
+        }
+    </script>
+}

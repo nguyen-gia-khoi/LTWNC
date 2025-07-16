@@ -1,0 +1,233 @@
+﻿@page
+@model LTWNC.Pages.Order.IndexModel
+
+@{
+    ViewData["Title"] = "Danh sách Đơn hàng";
+}
+
+<h2>Danh sách Đơn hàng</h2>
+
+<div class="mb-3 d-flex flex-wrap gap-2 align-items-center" style="background:#f9fafb;padding:15px;border-radius:8px;">
+    <input type="text" id="searchText" class="form-control d-inline w-auto" style="min-width:200px" placeholder="🔍 Tìm kiếm đơn hàng, khách hàng..." />
+    <select id="searchProduct" class="form-select d-inline w-auto" style="min-width:180px">
+        <option value="">Tất cả sản phẩm</option>
+        <!-- JS sẽ tự động load tên sản phẩm -->
+    </select>
+    <select id="searchCategory" class="form-select d-inline w-auto" style="min-width:160px">
+        <option value="">Tất cả danh mục</option>
+        <!-- JS sẽ tự động load danh mục -->
+    </select>
+    <input type="date" id="fromDate" class="form-control d-inline w-auto" placeholder="Từ ngày" />
+    <input type="date" id="toDate" class="form-control d-inline w-auto" placeholder="Đến ngày" />
+    <select id="sortOrder" class="form-select d-inline w-auto" style="min-width:100px">
+        <option value="desc">Mới nhất</option>
+        <option value="asc">Cũ nhất</option>
+    </select>
+    <button onclick="loadOrders(1)" class="btn btn-primary px-4"><i class="bi bi-search"></i> Tìm</button>
+</div>
+
+<table class="table table-bordered table-striped mt-3 text-center">
+    <thead>
+        <tr>
+            <th>Tên KH</th>
+            <th>Tên sản phẩm</th>
+            <th>Loại sản phẩm</th>
+            <th>Số lượng</th>
+            <th>Tiền</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody id="ordersTableBody"></tbody>
+</table>
+
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <button id="prevBtn" class="btn btn-secondary">◀️ Trang trước</button>
+    <span id="pageInfo"></span>
+    <button id="nextBtn" class="btn btn-secondary">Trang sau ▶️</button>
+</div>
+
+@section Scripts {
+    <script>
+        let products = [];
+        let categories = [];
+        let users = [];
+        let pageSize = 10; // 10 sản phẩm mỗi trang (not 10 đơn hàng)
+        let currentPage = 1;
+        let totalPages = 1;
+
+        // Thêm input ngày lọc vào filter
+        document.addEventListener("DOMContentLoaded", function () {
+            // Thêm input date nếu chưa có
+            if (!document.getElementById("fromDate")) {
+                const filterDiv = document.querySelector(".mb-3");
+                filterDiv.insertAdjacentHTML("beforeend", `
+                    <input type="date" id="fromDate" class="form-control d-inline w-auto" placeholder="Từ ngày" />
+                    <input type="date" id="toDate" class="form-control d-inline w-auto" placeholder="Đến ngày" />
+                `);
+            }
+        });
+
+                // Tự động fill dropdown tên sản phẩm
+        async function fillProductDropdown() {
+            const res = await fetch('/api/products?page=1&pageSize=1000');
+            if (res.ok) {
+                const data = await res.json();
+                const items = data.items || [];
+                const select = document.getElementById("searchProduct");
+                items.forEach(p => {
+                    select.innerHTML += `<option value="${p.id || p._id}">${p.name}</option>`;
+                });
+            }
+        }
+
+        // Tự động fill dropdown danh mục
+        async function fillCategoryDropdown() {
+            const res = await fetch('/api/categories/all');
+            if (res.ok) {
+                const cats = await res.json();
+                const select = document.getElementById("searchCategory");
+                cats.forEach(cat => {
+                    select.innerHTML += `<option value="${cat.id || cat._id}">${cat.categories_name}</option>`;
+                });
+            }
+        }
+
+
+        async function loadInitialData() {
+            const [productRes, categoryRes, userRes] = await Promise.all([
+                fetch(`/api/products?page=1&pageSize=1000`),
+                fetch(`/api/categories/all`),
+                fetch(`/api/users/all`)
+            ]);
+            if (!productRes.ok || !categoryRes.ok || !userRes.ok) {
+                alert("Không lấy được dữ liệu danh mục, sản phẩm, hoặc user");
+                return false;
+            }
+            products = (await productRes.json()).items;
+            categories = await categoryRes.json();
+            users = await userRes.json();
+            return true;
+        }
+
+        function getUserNameById(id) {
+            const user = users.find(u => u.id === id || u._id === id);
+            return user ? (user.customer_name || user.CustomerName || "Không rõ") : "Không rõ";
+        }
+
+            async function loadOrders(page = 1) {
+        currentPage = page;
+        const searchText = document.getElementById("searchText").value.trim().toLowerCase();
+        const searchProduct = document.getElementById("searchProduct").value;
+        const searchCategory = document.getElementById("searchCategory").value;
+        const sortOrder = document.getElementById("sortOrder").value;
+        const fromDate = document.getElementById("fromDate").value;
+        const toDate = document.getElementById("toDate").value;
+
+
+            // Luôn lấy hết (nhiều item) để phân trang phía client
+            const orderRes = await fetch(`/api/orders?page=1&pageSize=1000`);
+            if (!orderRes.ok) {
+                const text = await orderRes.text();
+                alert("Lỗi khi lấy dữ liệu ĐƠN HÀNG: " + orderRes.status + " - " + text);
+                return;
+            }
+            const ordersData = await orderRes.json();
+
+            // Map
+            const productMap = new Map();
+            products.forEach(p => {
+                if (p.id) productMap.set(p.id, p);
+                if (p._id) productMap.set(p._id, p);
+            });
+            const categoryMap = new Map();
+            categories.forEach(c => {
+                if (c.id) categoryMap.set(c.id, c.categories_name);
+                if (c._id) categoryMap.set(c._id, c.categories_name);
+            });
+
+            // Tạo rows là từng sản phẩm trong các đơn
+            let rows = [];
+            (ordersData.items || []).forEach(order => {
+                order.items.forEach(item => {
+                    const product = productMap.get(item.productId) || {};
+                    const productName = product.name || product.productName || "Không rõ";
+                    const categoryId = item.categoryId || product.categoryId;
+                    const categoryName = categoryMap.get(categoryId) || "Không rõ";
+                    const customerName = getUserNameById(order.customerID);
+                    const createdAt = order.createdAt || "";
+                    // Lọc ngày
+                    if (fromDate && new Date(createdAt) < new Date(fromDate)) return;
+                    if (toDate && new Date(createdAt) > new Date(toDate + "T23:59:59")) return;
+                    // Lọc text
+                    if (filterProductName && !productName.toLowerCase().includes(filterProductName)) return;
+                    if (filterCategory && !categoryName.toLowerCase().includes(filterCategory)) return;
+                    if (filterCustomer && !customerName.toLowerCase().includes(filterCustomer)) return;
+                    rows.push({
+                        customerName,
+                        productName,
+                        categoryName,
+                        quantity: item.quantity,
+                        price: product.price || 0,
+                        createdAt,
+                        orderId: order.id
+                    });
+                });
+            });
+
+            // Sắp xếp mới nhất lên trên cùng
+            rows.sort((a, b) => {
+                if (sortOrder === "desc") return new Date(b.createdAt) - new Date(a.createdAt);
+                else return new Date(a.createdAt) - new Date(b.createdAt);
+            });
+
+            // PHÂN TRANG THEO SẢN PHẨM, mỗi trang 10 sản phẩm
+            const totalItems = rows.length;
+            totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+            const pagedRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+            // Render table
+            const tbody = document.getElementById("ordersTableBody");
+            tbody.innerHTML = "";
+            if (pagedRows.length === 0) {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td colspan="6" class="text-center">Không có đơn hàng nào!</td>`;
+                tbody.appendChild(tr);
+            } else {
+                pagedRows.forEach(row => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${row.customerName}</td>
+                        <td>${row.productName}</td>
+                        <td>${row.categoryName}</td>
+                        <td>${row.quantity}</td>
+                        <td>${row.price.toLocaleString()}</td>
+                        <td>
+                            <a href="/Order/Detail?id=${row.orderId}" class="btn btn-info btn-sm">
+                                <i class="bi bi-eye"></i> Xem đơn hàng
+                            </a>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Phân trang
+            document.getElementById('pageInfo').innerText = `Trang ${currentPage} / ${totalPages}`;
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        }
+
+        // Sự kiện nút phân trang
+        document.addEventListener("DOMContentLoaded", async () => {
+            if (await loadInitialData()) {
+                document.getElementById('prevBtn').addEventListener('click', () => {
+                    if (currentPage > 1) loadOrders(currentPage - 1);
+                });
+                document.getElementById('nextBtn').addEventListener('click', () => {
+                    if (currentPage < totalPages) loadOrders(currentPage + 1);
+                });
+                loadOrders(1);
+            }
+        });
+    </script>
+}

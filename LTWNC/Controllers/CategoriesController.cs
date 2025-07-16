@@ -3,7 +3,6 @@ using LTWNC.Models.Entities;
 using LTWNC.Services;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
-using System.Drawing;
 
 namespace LTWNC.Controllers
 {
@@ -18,6 +17,7 @@ namespace LTWNC.Controllers
             _categories = mongoDbService.Database.GetCollection<Categories>("Categories");
         }
 
+        // GET: /api/categories?page=1&pageSize=10
         [HttpGet]
         public async Task<IActionResult> GetPagedCategories(
             [FromQuery] int page = 1,
@@ -27,7 +27,6 @@ namespace LTWNC.Controllers
                 return BadRequest("Page and PageSize must be greater than 0");
 
             var skip = (page - 1) * pageSize;
-
             var totalCount = await _categories.CountDocumentsAsync(FilterDefinition<Categories>.Empty);
 
             var categories = await _categories
@@ -40,19 +39,50 @@ namespace LTWNC.Controllers
             return Ok(new
             {
                 currentPage = page,
-                pageSize = pageSize,
+                pageSize,
                 totalItems = totalCount,
                 totalPages = (int)Math.Ceiling((double)totalCount / pageSize),
                 items = categories
             });
         }
 
+        // GET: /api/categories/all
+        [HttpGet("all")]
+        public async Task<IEnumerable<Categories>> GetAllCategories()
+        {
+            return await _categories
+                .Find(FilterDefinition<Categories>.Empty)
+                .SortByDescending(c => c.CreatedAt)
+                .ToListAsync();
+        }
 
+        // GET: /api/categories/{id}
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Categories>> GetById(string id)
+        {
+            try
+            {
+                var category = await _categories.Find(c => c.Id == id).FirstOrDefaultAsync();
+                if (category == null)
+                    return NotFound();
+
+                return Ok(category);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error retrieving category: {ex.Message}");
+            }
+        }
+
+        // POST: /api/categories
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Categories category)
         {
             try
             {
+                if (category.CreatedAt == default)
+                    category.CreatedAt = DateTime.UtcNow;
+
                 await _categories.InsertOneAsync(category);
                 return Ok(new { message = "Category created", id = category.Id });
             }
@@ -62,28 +92,42 @@ namespace LTWNC.Controllers
             }
         }
 
+        // PUT: /api/categories/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] Categories updated)
         {
-            updated.Id = id; // ⚠️ Quan trọng: gán lại Id trước khi ReplaceOneAsync
+            try
+            {
+                updated.Id = id;
 
-            var result = await _categories.ReplaceOneAsync(c => c.Id == id, updated);
-            if (result.MatchedCount == 0)
-                return NotFound();
+                var result = await _categories.ReplaceOneAsync(c => c.Id == id, updated);
+                if (result.MatchedCount == 0)
+                    return NotFound($"Category with ID {id} not found.");
 
-            return Ok(new { message = "Category updated" });
+                return Ok(new { message = "Category updated" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating category: {ex.Message}");
+            }
         }
 
-
-
+        // DELETE: /api/categories/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            var result = await _categories.DeleteOneAsync(c => c.Id == id);
-            if (result.DeletedCount == 0)
-                return NotFound();
+            try
+            {
+                var result = await _categories.DeleteOneAsync(c => c.Id == id);
+                if (result.DeletedCount == 0)
+                    return NotFound($"Category with ID {id} not found.");
 
-            return Ok(new { message = "Category deleted" });
+                return Ok(new { message = "Category deleted" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error deleting category: {ex.Message}");
+            }
         }
     }
 }
