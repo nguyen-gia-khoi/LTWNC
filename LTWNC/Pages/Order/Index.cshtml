@@ -11,29 +11,27 @@
     <input type="text" id="searchText" class="form-control d-inline w-auto" style="min-width:200px" placeholder="🔍 Tìm kiếm đơn hàng, khách hàng..." />
     <select id="searchProduct" class="form-select d-inline w-auto" style="min-width:180px">
         <option value="">Tất cả sản phẩm</option>
-        <!-- JS sẽ tự động load tên sản phẩm -->
     </select>
     <select id="searchCategory" class="form-select d-inline w-auto" style="min-width:160px">
         <option value="">Tất cả danh mục</option>
-        <!-- JS sẽ tự động load danh mục -->
     </select>
-    <input type="date" id="fromDate" class="form-control d-inline w-auto" placeholder="Từ ngày" />
-    <input type="date" id="toDate" class="form-control d-inline w-auto" placeholder="Đến ngày" />
+    <input type="date" id="fromDate" class="form-control d-inline w-auto" />
+    <input type="date" id="toDate" class="form-control d-inline w-auto" />
     <select id="sortOrder" class="form-select d-inline w-auto" style="min-width:100px">
         <option value="desc">Mới nhất</option>
         <option value="asc">Cũ nhất</option>
     </select>
-    <button onclick="loadOrders(1)" class="btn btn-primary px-4"><i class="bi bi-search"></i> Tìm</button>
+    <button id="btnSearch" class="btn btn-primary px-4"><i class="bi bi-search"></i> Tìm</button>
 </div>
 
 <table class="table table-bordered table-striped mt-3 text-center">
     <thead>
         <tr>
+            <th>Order ID</th>
             <th>Tên KH</th>
-            <th>Tên sản phẩm</th>
-            <th>Loại sản phẩm</th>
             <th>Số lượng</th>
             <th>Tiền</th>
+            <th>Trạng thái thanh toán</th>
             <th>Action</th>
         </tr>
     </thead>
@@ -51,183 +49,215 @@
         let products = [];
         let categories = [];
         let users = [];
-        let pageSize = 10; // 10 sản phẩm mỗi trang (not 10 đơn hàng)
+        const pageSize = 10;
         let currentPage = 1;
         let totalPages = 1;
 
-        // Thêm input ngày lọc vào filter
-        document.addEventListener("DOMContentLoaded", function () {
-            // Thêm input date nếu chưa có
-            if (!document.getElementById("fromDate")) {
-                const filterDiv = document.querySelector(".mb-3");
-                filterDiv.insertAdjacentHTML("beforeend", `
-                    <input type="date" id="fromDate" class="form-control d-inline w-auto" placeholder="Từ ngày" />
-                    <input type="date" id="toDate" class="form-control d-inline w-auto" placeholder="Đến ngày" />
-                `);
-            }
-        });
-
-                // Tự động fill dropdown tên sản phẩm
         async function fillProductDropdown() {
-            const res = await fetch('/api/products?page=1&pageSize=1000');
-            if (res.ok) {
+            try {
+                const res = await fetch('/api/products?page=1&pageSize=1000');
+                if (!res.ok) throw new Error('Lỗi lấy danh sách sản phẩm');
                 const data = await res.json();
                 const items = data.items || [];
                 const select = document.getElementById("searchProduct");
                 items.forEach(p => {
-                    select.innerHTML += `<option value="${p.id || p._id}">${p.name}</option>`;
+                    const id = p.id || p._id;
+                    if (id) {
+                        const option = document.createElement("option");
+                        option.value = id;
+                        option.textContent = p.name || '';
+                        select.appendChild(option);
+                    }
                 });
+            } catch (e) {
+                alert(e.message);
             }
         }
 
-        // Tự động fill dropdown danh mục
         async function fillCategoryDropdown() {
-            const res = await fetch('/api/categories/all');
-            if (res.ok) {
+            try {
+                const res = await fetch('/api/categories/all');
+                if (!res.ok) throw new Error('Lỗi lấy danh mục');
                 const cats = await res.json();
                 const select = document.getElementById("searchCategory");
                 cats.forEach(cat => {
-                    select.innerHTML += `<option value="${cat.id || cat._id}">${cat.categories_name}</option>`;
+                    const id = cat.id || cat._id;
+                    if (id) {
+                        const option = document.createElement("option");
+                        option.value = id;
+                        option.textContent = cat.categories_name || '';
+                        select.appendChild(option);
+                    }
                 });
+            } catch (e) {
+                alert(e.message);
             }
         }
 
-
         async function loadInitialData() {
-            const [productRes, categoryRes, userRes] = await Promise.all([
-                fetch(`/api/products?page=1&pageSize=1000`),
-                fetch(`/api/categories/all`),
-                fetch(`/api/users/all`)
-            ]);
-            if (!productRes.ok || !categoryRes.ok || !userRes.ok) {
-                alert("Không lấy được dữ liệu danh mục, sản phẩm, hoặc user");
+            try {
+                const [productRes, categoryRes, userRes] = await Promise.all([
+                    fetch('/api/products?page=1&pageSize=1000'),
+                    fetch('/api/categories/all'),
+                    fetch('/api/users/all')
+                ]);
+                if (!productRes.ok || !categoryRes.ok || !userRes.ok) {
+                    throw new Error('Không lấy được dữ liệu danh mục, sản phẩm hoặc user');
+                }
+                products = (await productRes.json()).items || [];
+                categories = await categoryRes.json() || [];
+                users = await userRes.json() || [];
+                return true;
+            } catch (e) {
+                alert(e.message);
                 return false;
             }
-            products = (await productRes.json()).items;
-            categories = await categoryRes.json();
-            users = await userRes.json();
-            return true;
         }
 
         function getUserNameById(id) {
+            if (!id) return "Không rõ";
             const user = users.find(u => u.id === id || u._id === id);
             return user ? (user.customer_name || user.CustomerName || "Không rõ") : "Không rõ";
         }
 
-            async function loadOrders(page = 1) {
-        currentPage = page;
-        const searchText = document.getElementById("searchText").value.trim().toLowerCase();
-        const searchProduct = document.getElementById("searchProduct").value;
-        const searchCategory = document.getElementById("searchCategory").value;
-        const sortOrder = document.getElementById("sortOrder").value;
-        const fromDate = document.getElementById("fromDate").value;
-        const toDate = document.getElementById("toDate").value;
-
-
-            // Luôn lấy hết (nhiều item) để phân trang phía client
-            const orderRes = await fetch(`/api/orders?page=1&pageSize=1000`);
-            if (!orderRes.ok) {
-                const text = await orderRes.text();
-                alert("Lỗi khi lấy dữ liệu ĐƠN HÀNG: " + orderRes.status + " - " + text);
-                return;
+        function getPayingStatusLabel(status) {
+            switch ((status || "").toLowerCase()) {
+                case "pending": return "Chờ thanh toán";
+                case "paid": return "Đã thanh toán";
+                case "cancelled": return "Đã hủy";
+                default: return "Không rõ";
             }
-            const ordersData = await orderRes.json();
-
-            // Map
-            const productMap = new Map();
-            products.forEach(p => {
-                if (p.id) productMap.set(p.id, p);
-                if (p._id) productMap.set(p._id, p);
-            });
-            const categoryMap = new Map();
-            categories.forEach(c => {
-                if (c.id) categoryMap.set(c.id, c.categories_name);
-                if (c._id) categoryMap.set(c._id, c.categories_name);
-            });
-
-            // Tạo rows là từng sản phẩm trong các đơn
-            let rows = [];
-            (ordersData.items || []).forEach(order => {
-                order.items.forEach(item => {
-                    const product = productMap.get(item.productId) || {};
-                    const productName = product.name || product.productName || "Không rõ";
-                    const categoryId = item.categoryId || product.categoryId;
-                    const categoryName = categoryMap.get(categoryId) || "Không rõ";
-                    const customerName = getUserNameById(order.customerID);
-                    const createdAt = order.createdAt || "";
-                    // Lọc ngày
-                    if (fromDate && new Date(createdAt) < new Date(fromDate)) return;
-                    if (toDate && new Date(createdAt) > new Date(toDate + "T23:59:59")) return;
-                    // Lọc text
-                    if (filterProductName && !productName.toLowerCase().includes(filterProductName)) return;
-                    if (filterCategory && !categoryName.toLowerCase().includes(filterCategory)) return;
-                    if (filterCustomer && !customerName.toLowerCase().includes(filterCustomer)) return;
-                    rows.push({
-                        customerName,
-                        productName,
-                        categoryName,
-                        quantity: item.quantity,
-                        price: product.price || 0,
-                        createdAt,
-                        orderId: order.id
-                    });
-                });
-            });
-
-            // Sắp xếp mới nhất lên trên cùng
-            rows.sort((a, b) => {
-                if (sortOrder === "desc") return new Date(b.createdAt) - new Date(a.createdAt);
-                else return new Date(a.createdAt) - new Date(b.createdAt);
-            });
-
-            // PHÂN TRANG THEO SẢN PHẨM, mỗi trang 10 sản phẩm
-            const totalItems = rows.length;
-            totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-            const pagedRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-            // Render table
-            const tbody = document.getElementById("ordersTableBody");
-            tbody.innerHTML = "";
-            if (pagedRows.length === 0) {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td colspan="6" class="text-center">Không có đơn hàng nào!</td>`;
-                tbody.appendChild(tr);
-            } else {
-                pagedRows.forEach(row => {
-                    const tr = document.createElement("tr");
-                    tr.innerHTML = `
-                        <td>${row.customerName}</td>
-                        <td>${row.productName}</td>
-                        <td>${row.categoryName}</td>
-                        <td>${row.quantity}</td>
-                        <td>${row.price.toLocaleString()}</td>
-                        <td>
-                            <a href="/Order/Detail?id=${row.orderId}" class="btn btn-info btn-sm">
-                                <i class="bi bi-eye"></i> Xem đơn hàng
-                            </a>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-
-            // Phân trang
-            document.getElementById('pageInfo').innerText = `Trang ${currentPage} / ${totalPages}`;
-            document.getElementById('prevBtn').disabled = currentPage <= 1;
-            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
         }
 
-        // Sự kiện nút phân trang
-        document.addEventListener("DOMContentLoaded", async () => {
-            if (await loadInitialData()) {
-                document.getElementById('prevBtn').addEventListener('click', () => {
-                    if (currentPage > 1) loadOrders(currentPage - 1);
+        async function loadOrders(page = 1) {
+            currentPage = page;
+
+            const searchText = (document.getElementById("searchText").value || "").trim().toLowerCase();
+            const searchProduct = (document.getElementById("searchProduct").value || "").toLowerCase();
+            const searchCategory = (document.getElementById("searchCategory").value || "").toLowerCase();
+            const sortOrder = document.getElementById("sortOrder").value;
+            const fromDate = document.getElementById("fromDate").value;
+            const toDate = document.getElementById("toDate").value;
+
+            const filterCustomer = searchText;
+            const filterProductName = searchProduct;
+            const filterCategory = searchCategory;
+
+            try {
+                const orderRes = await fetch(`/api/orders?page=1&pageSize=1000`);
+                if (!orderRes.ok) {
+                    const text = await orderRes.text();
+                    alert("Lỗi khi lấy dữ liệu ĐƠN HÀNG: " + orderRes.status + " - " + text);
+                    return;
+                }
+                const ordersData = await orderRes.json();
+
+                const productMap = new Map();
+                products.forEach(p => {
+                    const id = p.id || p._id;
+                    if (id) productMap.set(id, p);
                 });
-                document.getElementById('nextBtn').addEventListener('click', () => {
-                    if (currentPage < totalPages) loadOrders(currentPage + 1);
+
+                let rows = [];
+
+                (ordersData.items || []).forEach(order => {
+                    const items = order.Items || order.items || [];
+
+                    let totalQuantity = 0;
+                    let totalAmount = 0;
+
+                    items.forEach(item => {
+                        const productId = item.productId || item.ProductId;
+                        const product = productMap.get(productId) || {};
+                        const price = product.price || 0;
+                        const quantity = item.quantity || item.Quantity || 0;
+
+                        totalQuantity += quantity;
+                        totalAmount += price * quantity;
+                    });
+
+                    const customerId = order.customerID || order.CustomerID;
+                    const customerName = getUserNameById(customerId);
+                    const createdAt = order.createdAt || order.CreatedAt || "";
+
+                    // Lọc theo ngày
+                    if (fromDate && new Date(createdAt) < new Date(fromDate)) return;
+                    if (toDate && new Date(createdAt) > new Date(toDate + "T23:59:59")) return;
+
+                    // Lọc theo tên khách hàng
+                    if (filterCustomer && !customerName.toLowerCase().includes(filterCustomer)) return;
+
+                    rows.push({
+                        orderId: order.id || order.Id,
+                        customerName,
+                        totalQuantity,
+                        totalAmount,
+                        payingStatus: order.payingStatus || "unknown",
+                        createdAt
+                    });
                 });
-                loadOrders(1);
+
+                rows.sort((a, b) => {
+                    return sortOrder === "desc"
+                        ? new Date(b.createdAt) - new Date(a.createdAt)
+                        : new Date(a.createdAt) - new Date(b.createdAt);
+                });
+
+                const totalItems = rows.length;
+                totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+                const pagedRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+                const tbody = document.getElementById("ordersTableBody");
+                tbody.innerHTML = "";
+
+                if (pagedRows.length === 0) {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `<td colspan="6" class="text-center">Không có đơn hàng nào!</td>`;
+                    tbody.appendChild(tr);
+                } else {
+                    pagedRows.forEach(row => {
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `
+                            <td>${row.orderId}</td>
+                            <td>${row.customerName}</td>
+                            <td>${row.totalQuantity}</td>
+                            <td>${row.totalAmount.toLocaleString()}₫</td>
+                            <td>${getPayingStatusLabel(row.payingStatus)}</td>
+                            <td>
+                                <a href="/Order/Detail?id=${row.orderId}" class="btn btn-info btn-sm">
+                                    <i class="bi bi-eye"></i> Xem đơn hàng
+                                </a>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                document.getElementById('pageInfo').innerText = `Trang ${currentPage} / ${totalPages}`;
+                document.getElementById('prevBtn').disabled = currentPage <= 1;
+                document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+
+            } catch (error) {
+                alert("Lỗi khi tải dữ liệu đơn hàng: " + error.message);
             }
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const ok = await loadInitialData();
+            if (!ok) return;
+
+            await fillProductDropdown();
+            await fillCategoryDropdown();
+
+            document.getElementById('btnSearch').addEventListener('click', () => loadOrders(1));
+            document.getElementById('prevBtn').addEventListener('click', () => {
+                if (currentPage > 1) loadOrders(currentPage - 1);
+            });
+            document.getElementById('nextBtn').addEventListener('click', () => {
+                if (currentPage < totalPages) loadOrders(currentPage + 1);
+            });
+
+            loadOrders(1);
         });
     </script>
 }

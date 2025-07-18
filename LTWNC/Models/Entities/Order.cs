@@ -21,8 +21,8 @@ public class Order
     [BsonElement("items")]
     public List<OrderItem> Items { get; set; }
 
-    [BsonElement("status")]
-    public string Status { get; set; } = "pending";
+    [BsonElement("payingStatus")]
+    public string payingStatus { get; set; } = "pending";
 
     [BsonElement("createdAt")]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
