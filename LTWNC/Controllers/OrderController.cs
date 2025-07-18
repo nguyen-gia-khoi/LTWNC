@@ -50,7 +50,7 @@ public class OrdersController : ControllerBase
                 return BadRequest("Order contains duplicate items");
             }
 
-            order.Status ??= "pending";
+            order.payingStatus ??= "pending";
             order.CreatedAt = DateTime.UtcNow;
 
             var enrichedItems = new List<OrderItem>();
@@ -102,7 +102,9 @@ public class OrdersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetPagedOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetPagedOrders(
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 10)
     {
         try
         {
@@ -143,7 +145,7 @@ public class OrdersController : ControllerBase
                     order.CustomerID,
                     order.CustomerPhone,
                     order.CustomerAddress,
-                    order.Status,
+                    order.payingStatus,
                     order.CreatedAt,
                     Items = enrichedItems
                 });
@@ -232,7 +234,7 @@ public class OrdersController : ControllerBase
                 .Set(o => o.CustomerPhone, updatedOrder.CustomerPhone)
                 .Set(o => o.CustomerAddress, updatedOrder.CustomerAddress)
                 .Set(o => o.Items, updatedOrder.Items)
-                .Set(o => o.Status, string.IsNullOrWhiteSpace(updatedOrder.Status) ? existingOrder.Status : updatedOrder.Status);
+                .Set(o => o.payingStatus, string.IsNullOrWhiteSpace(updatedOrder.payingStatus) ? existingOrder.payingStatus : updatedOrder.payingStatus);
 
             await _orders.UpdateOneAsync(filter, update);
             return Ok(new { message = "Order updated successfully" });
