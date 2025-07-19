@@ -18,6 +18,9 @@ public class Order
     [BsonElement("customerAddress")]
     public string? CustomerAddress { get; set; }
 
+    [BsonElement("price")]
+    public decimal Price { get; set; }
+
     [BsonElement("items")]
     public List<OrderItem> Items { get; set; }
 
@@ -34,6 +37,7 @@ public class OrderItem
     public string? ProductId { get; set; }
     public string? ColorId { get; set; }
     public string? SizeId { get; set; }
+    public decimal Price { get; set; }
     public int Quantity { get; set; }
     public string? CategoryId { get; set; }
 }

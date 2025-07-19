@@ -9,17 +9,14 @@
 
 <div class="mb-3 d-flex flex-wrap gap-2 align-items-center" style="background:#f9fafb;padding:15px;border-radius:8px;">
     <input type="text" id="searchText" class="form-control d-inline w-auto" style="min-width:200px" placeholder="🔍 Tìm kiếm đơn hàng, khách hàng..." />
-    <select id="searchProduct" class="form-select d-inline w-auto" style="min-width:180px">
-        <option value="">Tất cả sản phẩm</option>
-    </select>
-    <select id="searchCategory" class="form-select d-inline w-auto" style="min-width:160px">
-        <option value="">Tất cả danh mục</option>
-    </select>
     <input type="date" id="fromDate" class="form-control d-inline w-auto" />
     <input type="date" id="toDate" class="form-control d-inline w-auto" />
     <select id="sortOrder" class="form-select d-inline w-auto" style="min-width:100px">
         <option value="desc">Mới nhất</option>
         <option value="asc">Cũ nhất</option>
+    </select>
+    <select id="categoryFilter" class="form-select d-inline w-auto" style="min-width:150px">
+        <option value="">-- Tất cả danh mục --</option>
     </select>
     <button id="btnSearch" class="btn btn-primary px-4"><i class="bi bi-search"></i> Tìm</button>
 </div>
@@ -29,6 +26,7 @@
         <tr>
             <th>Order ID</th>
             <th>Tên KH</th>
+            <th>Danh mục</th>
             <th>Số lượng</th>
             <th>Tiền</th>
             <th>Trạng thái thanh toán</th>
@@ -53,47 +51,6 @@
         let currentPage = 1;
         let totalPages = 1;
 
-        async function fillProductDropdown() {
-            try {
-                const res = await fetch('/api/products?page=1&pageSize=1000');
-                if (!res.ok) throw new Error('Lỗi lấy danh sách sản phẩm');
-                const data = await res.json();
-                const items = data.items || [];
-                const select = document.getElementById("searchProduct");
-                items.forEach(p => {
-                    const id = p.id || p._id;
-                    if (id) {
-                        const option = document.createElement("option");
-                        option.value = id;
-                        option.textContent = p.name || '';
-                        select.appendChild(option);
-                    }
-                });
-            } catch (e) {
-                alert(e.message);
-            }
-        }
-
-        async function fillCategoryDropdown() {
-            try {
-                const res = await fetch('/api/categories/all');
-                if (!res.ok) throw new Error('Lỗi lấy danh mục');
-                const cats = await res.json();
-                const select = document.getElementById("searchCategory");
-                cats.forEach(cat => {
-                    const id = cat.id || cat._id;
-                    if (id) {
-                        const option = document.createElement("option");
-                        option.value = id;
-                        option.textContent = cat.categories_name || '';
-                        select.appendChild(option);
-                    }
-                });
-            } catch (e) {
-                alert(e.message);
-            }
-        }
-
         async function loadInitialData() {
             try {
                 const [productRes, categoryRes, userRes] = await Promise.all([
@@ -101,12 +58,16 @@
                     fetch('/api/categories/all'),
                     fetch('/api/users/all')
                 ]);
+
                 if (!productRes.ok || !categoryRes.ok || !userRes.ok) {
                     throw new Error('Không lấy được dữ liệu danh mục, sản phẩm hoặc user');
                 }
+
                 products = (await productRes.json()).items || [];
                 categories = await categoryRes.json() || [];
                 users = await userRes.json() || [];
+
+                populateCategoryFilter(categories);
                 return true;
             } catch (e) {
                 alert(e.message);
@@ -114,10 +75,27 @@
             }
         }
 
+        function populateCategoryFilter(categories) {
+            const categorySelect = document.getElementById("categoryFilter");
+            categories.forEach(cat => {
+                const opt = document.createElement("option");
+                opt.value = cat.id || cat._id;
+                opt.text = cat.categories_name;
+                categorySelect.appendChild(opt);
+            });
+        }
+
         function getUserNameById(id) {
             if (!id) return "Không rõ";
             const user = users.find(u => u.id === id || u._id === id);
             return user ? (user.customer_name || user.CustomerName || "Không rõ") : "Không rõ";
+        }
+
+        function getCategoryNameByProduct(productId) {
+            const product = products.find(p => p.id === productId || p._id === productId);
+            const catId = product?.categoryId;
+            const category = categories.find(c => c.id === catId || c._id === catId);
+            return category?.categories_name || "Không rõ";
         }
 
         function getPayingStatusLabel(status) {
@@ -131,17 +109,12 @@
 
         async function loadOrders(page = 1) {
             currentPage = page;
-
+            const filterCategoryId = document.getElementById("categoryFilter").value;
             const searchText = (document.getElementById("searchText").value || "").trim().toLowerCase();
-            const searchProduct = (document.getElementById("searchProduct").value || "").toLowerCase();
-            const searchCategory = (document.getElementById("searchCategory").value || "").toLowerCase();
             const sortOrder = document.getElementById("sortOrder").value;
             const fromDate = document.getElementById("fromDate").value;
             const toDate = document.getElementById("toDate").value;
-
             const filterCustomer = searchText;
-            const filterProductName = searchProduct;
-            const filterCategory = searchCategory;
 
             try {
                 const orderRes = await fetch(`/api/orders?page=1&pageSize=1000`);
@@ -150,9 +123,10 @@
                     alert("Lỗi khi lấy dữ liệu ĐƠN HÀNG: " + orderRes.status + " - " + text);
                     return;
                 }
-                const ordersData = await orderRes.json();
 
+                const ordersData = await orderRes.json();
                 const productMap = new Map();
+
                 products.forEach(p => {
                     const id = p.id || p._id;
                     if (id) productMap.set(id, p);
@@ -162,9 +136,9 @@
 
                 (ordersData.items || []).forEach(order => {
                     const items = order.Items || order.items || [];
-
                     let totalQuantity = 0;
                     let totalAmount = 0;
+                    let categoryNames = new Set();
 
                     items.forEach(item => {
                         const productId = item.productId || item.ProductId;
@@ -174,22 +148,35 @@
 
                         totalQuantity += quantity;
                         totalAmount += price * quantity;
+
+                        const catName = getCategoryNameByProduct(productId);
+                        if (catName && catName !== "Không rõ") {
+                            categoryNames.add(catName);
+                        }
                     });
 
                     const customerId = order.customerID || order.CustomerID;
                     const customerName = getUserNameById(customerId);
                     const createdAt = order.createdAt || order.CreatedAt || "";
 
-                    // Lọc theo ngày
                     if (fromDate && new Date(createdAt) < new Date(fromDate)) return;
                     if (toDate && new Date(createdAt) > new Date(toDate + "T23:59:59")) return;
-
-                    // Lọc theo tên khách hàng
                     if (filterCustomer && !customerName.toLowerCase().includes(filterCustomer)) return;
+
+                    if (filterCategoryId) {
+                        const matched = items.some(item => {
+                            const productId = item.productId || item.ProductId;
+                            const product = productMap.get(productId);
+                            const categoryId = product?.categoryId;
+                            return categoryId === filterCategoryId || categoryId === filterCategoryId.toString();
+                        });
+                        if (!matched) return;
+                    }
 
                     rows.push({
                         orderId: order.id || order.Id,
                         customerName,
+                        categoryName: [...categoryNames].join("<br>"),
                         totalQuantity,
                         totalAmount,
                         payingStatus: order.payingStatus || "unknown",
@@ -212,7 +199,7 @@
 
                 if (pagedRows.length === 0) {
                     const tr = document.createElement("tr");
-                    tr.innerHTML = `<td colspan="6" class="text-center">Không có đơn hàng nào!</td>`;
+                    tr.innerHTML = `<td colspan="7" class="text-center">Không có đơn hàng nào!</td>`;
                     tbody.appendChild(tr);
                 } else {
                     pagedRows.forEach(row => {
@@ -220,6 +207,7 @@
                         tr.innerHTML = `
                             <td>${row.orderId}</td>
                             <td>${row.customerName}</td>
+                            <td style="white-space: normal">${row.categoryName}</td>
                             <td>${row.totalQuantity}</td>
                             <td>${row.totalAmount.toLocaleString()}₫</td>
                             <td>${getPayingStatusLabel(row.payingStatus)}</td>
@@ -246,9 +234,9 @@
             const ok = await loadInitialData();
             if (!ok) return;
 
-            await fillProductDropdown();
-            await fillCategoryDropdown();
+            loadOrders(1);
 
+            document.getElementById('categoryFilter').addEventListener('change', () => loadOrders(1));
             document.getElementById('btnSearch').addEventListener('click', () => loadOrders(1));
             document.getElementById('prevBtn').addEventListener('click', () => {
                 if (currentPage > 1) loadOrders(currentPage - 1);
@@ -256,8 +244,6 @@
             document.getElementById('nextBtn').addEventListener('click', () => {
                 if (currentPage < totalPages) loadOrders(currentPage + 1);
             });
-
-            loadOrders(1);
         });
     </script>
 }
