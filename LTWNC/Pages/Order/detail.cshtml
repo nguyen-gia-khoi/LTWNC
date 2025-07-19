@@ -1,0 +1,201 @@
+﻿@page
+@model LTWNC.Pages.Order.DetailModel
+
+@{
+    ViewData["Title"] = "Chi tiết đơn hàng";
+}
+
+<h2>Chi tiết đơn hàng</h2>
+
+<div id="orderDetail" class="border p-3 rounded" style="background:#f1f5f9;"></div>
+
+<a href="javascript:history.back()" class="btn btn-secondary mt-3">⬅️ Quay lại</a>
+
+@section Scripts {
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('id');
+        let currentOrder = null;
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            await loadOrderDetail();
+
+            document.body.addEventListener("click", (e) => {
+                if (e.target.id === "editBtn") {
+                    renderEditForm(currentOrder);
+                } else if (e.target.id === "cancelBtn") {
+                    rejectOrder(currentOrder);
+                } else if (e.target.id === "restoreBtn") {
+                    restoreOrder(currentOrder);
+                }
+            });
+        });
+
+        async function restoreOrder(order) {
+            if (!confirm("Bạn có chắc muốn khôi phục đơn hàng này?")) return;
+
+            const updatedOrder = {
+                ...order,
+                payingStatus: "pending"
+            };
+
+            const res = await fetch(`/api/orders/${order.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedOrder)
+            });
+
+            if (res.ok) {
+                alert("✅ Đơn hàng đã được khôi phục");
+                loadOrderDetail(); // Gọi lại để render đúng giao diện
+            } else {
+                alert("❌ Lỗi khi khôi phục đơn hàng");
+            }
+        }
+
+        async function loadOrderDetail() {
+            if (!orderId) {
+                document.getElementById("orderDetail").innerHTML = "Không tìm thấy mã đơn hàng!";
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/orders/${orderId}`);
+                if (!res.ok) throw new Error("Không tìm thấy đơn hàng");
+
+                const order = await res.json();
+                currentOrder = order;
+
+                const customer = await fetchJson(`/api/users/${order.customerID}`, {});
+                console.log("👉 API /users/:id trả về:", customer);
+
+                const name = customer.customer_name || customer.name || "Không rõ";
+                const phone = order.customerPhone ?? "Không rõ";
+                const address = order.customerAddress ?? "Không rõ";
+
+                let html = `
+                    <p><strong>Order ID:</strong> ${order.id}</p>
+                    <p><strong>Khách hàng:</strong> ${name}</p>
+                    <p><strong>Điện thoại:</strong> ${phone}</p>
+                    <p><strong>Địa chỉ:</strong> ${address}</p>
+                    <p><strong>Ngày tạo:</strong> ${new Date(order.createdAt).toLocaleString()}</p>
+                    <p><strong>Trạng thái thanh toán:</strong> ${getPayingStatusLabel(order.payingStatus)}</p>
+                    <hr />
+                    <h5>Sản phẩm trong đơn hàng:</h5>
+                    <table class="table table-bordered text-center">
+                        <thead>
+                            <tr>
+                                <th>Tên SP</th>
+                                <th>Danh mục</th>
+                                <th>Màu</th>
+                                <th>Size</th>
+                                <th>Số lượng</th>
+                                <th>Giá</th>
+                                <th>Tổng</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                let total = 0;
+
+                for (const item of order.items) {
+                    const product = await fetchJson(`/api/products/${item.productId}`, { name: "Không rõ", price: 0, categoryId: null });
+                    const category = await fetchJson(`/api/categories/${product.categoryId}`, { categories_name: "Không rõ" });
+                    
+                    const color = await fetchJson(`/api/colors/${item.colorId}`, { colors_name: "Không rõ" });
+                    const size = await fetchJson(`/api/sizes/${item.sizeId}`, { size_name: "Không rõ" });
+
+                    const quantity = item.quantity;
+                    const price = product.price;
+                    const itemTotal = order.price
+                    
+
+                    html += `
+                        <tr>
+                            <td>${product.name}</td>
+                            <td>${category.categories_name}</td>
+                            <td>${color.colors_name}</td>
+                            <td>${size.size_name}</td>
+                            <td>${quantity}</td>
+                            <td>${price.toLocaleString()}₫</td>
+                            <td>${itemTotal.toLocaleString()}₫</td>
+                        </tr>
+                    `;
+                }
+
+                html += `
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th colspan="6" class="text-end">Tổng cộng:</th>
+                                <th>${total.toLocaleString()}₫</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                `;
+
+                // Thêm nút theo trạng thái
+                if (order.payingStatus === "cancelled") {
+                    html += `
+                        <div class="d-flex gap-2 mt-3">
+                            <button id="restoreBtn" class="btn btn-success">🔄 Khôi phục đơn hàng</button>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="d-flex gap-2 mt-3">
+                            <button id="editBtn" class="btn btn-warning">✏️ Sửa đơn hàng</button>
+                            <button id="cancelBtn" class="btn btn-danger">❌ Từ chối đơn hàng</button>
+                        </div>
+                    `;
+                }
+
+                document.getElementById("orderDetail").innerHTML = html;
+
+            } catch (err) {
+                document.getElementById("orderDetail").innerHTML = `<div class="text-danger">${err.message}</div>`;
+            }
+        }
+
+        function getPayingStatusLabel(status) {
+            switch ((status || "").toLowerCase()) {
+                case "pending": return "Chờ thanh toán";
+                case "paid": return "Đã thanh toán";
+                case "cancelled": return "Đã hủy";
+                default: return "Không rõ";
+            }
+        }
+
+        async function rejectOrder(order) {
+            if (!confirm("Bạn có chắc muốn từ chối đơn hàng này?")) return;
+
+            const updatedOrder = {
+                ...order,
+                payingStatus: "cancelled"
+            };
+
+            const res = await fetch(`/api/orders/${order.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedOrder)
+            });
+
+            if (res.ok) {
+                alert("✅ Đã từ chối đơn hàng");
+                location.reload();
+            } else {
+                alert("❌ Lỗi khi cập nhật trạng thái đơn hàng");
+            }
+        }
+
+        async function fetchJson(url, fallback = {}) {
+            try {
+                const res = await fetch(url);
+                return res.ok ? await res.json() : fallback;
+            } catch {
+                return fallback;
+            }
+        }
+    </script>
+}

@@ -19,5 +19,9 @@ namespace LTWNC.Models.Entities
         [BsonElement("quantity")]
         [JsonPropertyName("quantity")]
         public int Quantity { get; set; }
+
+        [BsonElement("price")]
+        [JsonPropertyName("price")]
+        public decimal Price { get; set; }
     }
 }

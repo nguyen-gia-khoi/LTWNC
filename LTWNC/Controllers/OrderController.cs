@@ -54,6 +54,7 @@ public class OrdersController : ControllerBase
             order.CreatedAt = DateTime.UtcNow;
 
             var enrichedItems = new List<OrderItem>();
+            decimal totalPrice = 0;
 
             foreach (var item in order.Items)
             {
@@ -61,6 +62,7 @@ public class OrdersController : ControllerBase
                 if (product == null)
                     return BadRequest($"Không tìm thấy sản phẩm với ID {item.ProductId}");
 
+                // Kiểm tra tồn kho biến thể (không dùng giá)
                 var variant = product.Variants?.FirstOrDefault(v =>
                     v.ColorId == item.ColorId && v.SizeId == item.SizeId);
 
@@ -70,6 +72,7 @@ public class OrdersController : ControllerBase
                 if (variant.Quantity < item.Quantity)
                     return BadRequest($"Số lượng tồn kho của sản phẩm {product.Name} không đủ");
 
+                // Trừ tồn kho
                 var filter = Builders<Product>.Filter.Eq(p => p.Id, item.ProductId)
                              & Builders<Product>.Filter.ElemMatch(p => p.Variants,
                                  v => v.ColorId == item.ColorId && v.SizeId == item.SizeId);
@@ -81,17 +84,23 @@ public class OrdersController : ControllerBase
                     return StatusCode(500, $"Không thể cập nhật số lượng tồn kho cho sản phẩm {product.Name}");
                 }
 
+                // 👉 Tính giá theo Product.Price (không lấy từ variant)
+                decimal itemTotal = product.Price * item.Quantity;
+                totalPrice += itemTotal;
+
                 enrichedItems.Add(new OrderItem
                 {
                     ProductId = item.ProductId,
                     ColorId = item.ColorId,
                     SizeId = item.SizeId,
                     Quantity = item.Quantity,
-                    CategoryId = product.CategoryId // ✅ gán thêm category
+                    CategoryId = product.CategoryId,
+                    Price = product.Price
                 });
             }
 
             order.Items = enrichedItems;
+            order.Price = totalPrice;
             await _orders.InsertOneAsync(order);
             return Ok(new { message = "Order placed", orderId = order.Id });
         }
@@ -103,7 +112,7 @@ public class OrdersController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> GetPagedOrders(
-        [FromQuery] int page = 1, 
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
         try
@@ -135,6 +144,7 @@ public class OrdersController : ControllerBase
                         item.ColorId,
                         item.SizeId,
                         item.Quantity,
+                        item.Price,
                         CategoryId = product?.CategoryId ?? "unknown"
                     });
                 }
@@ -147,6 +157,7 @@ public class OrdersController : ControllerBase
                     order.CustomerAddress,
                     order.payingStatus,
                     order.CreatedAt,
+                    order.Price,
                     Items = enrichedItems
                 });
             }
@@ -165,7 +176,6 @@ public class OrdersController : ControllerBase
             return StatusCode(500, $"Error retrieving orders: {ex.Message}");
         }
     }
-
 
     [HttpGet("{id}")]
     public async Task<ActionResult<Order?>> GetOrderById(string id)
@@ -229,11 +239,23 @@ public class OrdersController : ControllerBase
             if (duplicate)
                 return BadRequest("Order contains duplicate items");
 
+            decimal totalPrice = 0;
+            foreach (var item in updatedOrder.Items)
+            {
+                var product = await _products.Find(p => p.Id == item.ProductId).FirstOrDefaultAsync();
+                if (product != null)
+                {
+                    totalPrice += product.Price * item.Quantity;
+                    item.Price = product.Price;
+                }
+            }
+
             var update = Builders<Order>.Update
                 .Set(o => o.CustomerID, updatedOrder.CustomerID)
                 .Set(o => o.CustomerPhone, updatedOrder.CustomerPhone)
                 .Set(o => o.CustomerAddress, updatedOrder.CustomerAddress)
                 .Set(o => o.Items, updatedOrder.Items)
+                .Set(o => o.Price, totalPrice)
                 .Set(o => o.payingStatus, string.IsNullOrWhiteSpace(updatedOrder.payingStatus) ? existingOrder.payingStatus : updatedOrder.payingStatus);
 
             await _orders.UpdateOneAsync(filter, update);
