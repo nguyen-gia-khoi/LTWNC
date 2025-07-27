@@ -8,12 +8,18 @@
 <h2>Danh sách Đơn hàng</h2>
 
 <div class="mb-3 d-flex flex-wrap gap-2 align-items-center" style="background:#f9fafb;padding:15px;border-radius:8px;">
-    <input type="text" id="searchText" class="form-control d-inline w-auto" style="min-width:200px" placeholder="🔍 Tìm kiếm đơn hàng, khách hàng..." />
+    <input type="text" id="searchText" class="form-control d-inline w-auto" style="min-width:200px" placeholder="🔍 Tìm kiếm đơn hàng, khách hàng, trạng thái..." />
     <input type="date" id="fromDate" class="form-control d-inline w-auto" />
     <input type="date" id="toDate" class="form-control d-inline w-auto" />
     <select id="sortOrder" class="form-select d-inline w-auto" style="min-width:100px">
         <option value="desc">Mới nhất</option>
         <option value="asc">Cũ nhất</option>
+    </select>
+    <select id="statusFilter" class="form-select d-inline w-auto" style="min-width:120px">
+        <option value="">-- Tất cả trạng thái --</option>
+        <option value="pending">Chờ thanh toán</option>
+        <option value="paid">Đã thanh toán</option>
+        <option value="cancelled">Đã hủy</option>
     </select>
     <select id="categoryFilter" class="form-select d-inline w-auto" style="min-width:150px">
         <option value="">-- Tất cả danh mục --</option>
@@ -21,7 +27,7 @@
     <button id="btnSearch" class="btn btn-primary px-4"><i class="bi bi-search"></i> Tìm</button>
 </div>
 
-<table class="table table-bordered table-striped mt-3 text-center">
+<table class="table table-bordered table-striped mt-3 text-center align-middle">
     <thead>
         <tr>
             <th>Order ID</th>
@@ -29,7 +35,8 @@
             <th>Danh mục</th>
             <th>Số lượng</th>
             <th>Tiền</th>
-            <th>Trạng thái thanh toán</th>
+            <th>Ngày đặt hàng</th>
+            <th>Trạng thái</th>
             <th>Action</th>
         </tr>
     </thead>
@@ -58,15 +65,10 @@
                     fetch('/api/categories/all'),
                     fetch('/api/users/all')
                 ]);
-
-                if (!productRes.ok || !categoryRes.ok || !userRes.ok) {
-                    throw new Error('Không lấy được dữ liệu danh mục, sản phẩm hoặc user');
-                }
-
+                if (!productRes.ok || !categoryRes.ok || !userRes.ok) throw new Error('Không lấy được dữ liệu danh mục, sản phẩm hoặc user');
                 products = (await productRes.json()).items || [];
                 categories = await categoryRes.json() || [];
                 users = await userRes.json() || [];
-
                 populateCategoryFilter(categories);
                 return true;
             } catch (e) {
@@ -106,15 +108,23 @@
                 default: return "Không rõ";
             }
         }
+        function getPayingStatusColor(status) {
+            switch ((status || "").toLowerCase()) {
+                case "pending": return "text-warning";
+                case "paid": return "text-success";
+                case "cancelled": return "text-danger";
+                default: return "text-secondary";
+            }
+        }
 
         async function loadOrders(page = 1) {
             currentPage = page;
             const filterCategoryId = document.getElementById("categoryFilter").value;
+            const statusFilter = document.getElementById("statusFilter").value;
             const searchText = (document.getElementById("searchText").value || "").trim().toLowerCase();
             const sortOrder = document.getElementById("sortOrder").value;
             const fromDate = document.getElementById("fromDate").value;
             const toDate = document.getElementById("toDate").value;
-            const filterCustomer = searchText;
 
             try {
                 const orderRes = await fetch(`/api/orders?page=1&pageSize=1000`);
@@ -126,7 +136,6 @@
 
                 const ordersData = await orderRes.json();
                 const productMap = new Map();
-
                 products.forEach(p => {
                     const id = p.id || p._id;
                     if (id) productMap.set(id, p);
@@ -145,23 +154,28 @@
                         const product = productMap.get(productId) || {};
                         const price = product.price || 0;
                         const quantity = item.quantity || item.Quantity || 0;
-
                         totalQuantity += quantity;
                         totalAmount += price * quantity;
-
                         const catName = getCategoryNameByProduct(productId);
-                        if (catName && catName !== "Không rõ") {
-                            categoryNames.add(catName);
-                        }
+                        if (catName && catName !== "Không rõ") categoryNames.add(catName);
                     });
 
                     const customerId = order.customerID || order.CustomerID;
                     const customerName = getUserNameById(customerId);
                     const createdAt = order.createdAt || order.CreatedAt || "";
+                    const phone = order.customerPhone || order.CustomerPhone || "";
+                    const status = (order.payingStatus || "unknown").toLowerCase();
 
                     if (fromDate && new Date(createdAt) < new Date(fromDate)) return;
                     if (toDate && new Date(createdAt) > new Date(toDate + "T23:59:59")) return;
-                    if (filterCustomer && !customerName.toLowerCase().includes(filterCustomer)) return;
+
+                    // Tìm kiếm linh hoạt nhiều trường
+                    if (searchText && !(
+                        customerName.toLowerCase().includes(searchText) ||
+                        (order.id || order.Id || "").toLowerCase().includes(searchText) ||
+                        phone.toLowerCase().includes(searchText) ||
+                        status.includes(searchText)
+                    )) return;
 
                     if (filterCategoryId) {
                         const matched = items.some(item => {
@@ -172,6 +186,7 @@
                         });
                         if (!matched) return;
                     }
+                    if (statusFilter && status !== statusFilter) return;
 
                     rows.push({
                         orderId: order.id || order.Id,
@@ -179,7 +194,7 @@
                         categoryName: [...categoryNames].join("<br>"),
                         totalQuantity,
                         totalAmount,
-                        payingStatus: order.payingStatus || "unknown",
+                        payingStatus: status,
                         createdAt
                     });
                 });
@@ -199,7 +214,7 @@
 
                 if (pagedRows.length === 0) {
                     const tr = document.createElement("tr");
-                    tr.innerHTML = `<td colspan="7" class="text-center">Không có đơn hàng nào!</td>`;
+                    tr.innerHTML = `<td colspan="8" class="text-center">Không có đơn hàng nào!</td>`;
                     tbody.appendChild(tr);
                 } else {
                     pagedRows.forEach(row => {
@@ -210,7 +225,8 @@
                             <td style="white-space: normal">${row.categoryName}</td>
                             <td>${row.totalQuantity}</td>
                             <td>${row.totalAmount.toLocaleString()}₫</td>
-                            <td>${getPayingStatusLabel(row.payingStatus)}</td>
+                            <td><span>${new Date(row.createdAt).toLocaleString('vi-VN')}</span></td>
+                            <td><span class="${getPayingStatusColor(row.payingStatus)}">${getPayingStatusLabel(row.payingStatus)}</span></td>
                             <td>
                                 <a href="/Order/Detail?id=${row.orderId}" class="btn btn-info btn-sm">
                                     <i class="bi bi-eye"></i> Xem đơn hàng
@@ -233,10 +249,9 @@
         document.addEventListener("DOMContentLoaded", async () => {
             const ok = await loadInitialData();
             if (!ok) return;
-
             loadOrders(1);
-
             document.getElementById('categoryFilter').addEventListener('change', () => loadOrders(1));
+            document.getElementById('statusFilter').addEventListener('change', () => loadOrders(1));
             document.getElementById('btnSearch').addEventListener('click', () => loadOrders(1));
             document.getElementById('prevBtn').addEventListener('click', () => {
                 if (currentPage > 1) loadOrders(currentPage - 1);

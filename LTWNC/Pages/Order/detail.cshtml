@@ -67,8 +67,6 @@
                 currentOrder = order;
 
                 const customer = await fetchJson(`/api/users/${order.customerID}`, {});
-                console.log("👉 API /users/:id trả về:", customer);
-
                 const name = customer.customer_name || customer.name || "Không rõ";
                 const phone = order.customerPhone ?? "Không rõ";
                 const address = order.customerAddress ?? "Không rõ";
@@ -102,14 +100,13 @@
                 for (const item of order.items) {
                     const product = await fetchJson(`/api/products/${item.productId}`, { name: "Không rõ", price: 0, categoryId: null });
                     const category = await fetchJson(`/api/categories/${product.categoryId}`, { categories_name: "Không rõ" });
-                    
                     const color = await fetchJson(`/api/colors/${item.colorId}`, { colors_name: "Không rõ" });
                     const size = await fetchJson(`/api/sizes/${item.sizeId}`, { size_name: "Không rõ" });
 
                     const quantity = item.quantity;
-                    const price = product.price;
-                    const itemTotal = order.price
-                    
+                    const price = item.price || product.price || 0;
+                    const itemTotal = price * quantity;
+                    total += itemTotal;
 
                     html += `
                         <tr>
@@ -145,7 +142,7 @@
                 } else {
                     html += `
                         <div class="d-flex gap-2 mt-3">
-                            <button id="editBtn" class="btn btn-warning">✏️ Sửa đơn hàng</button>
+                            <button id="editBtn" class="btn btn-warning">✏️ Cập nhật đơn hàng</button>
                             <button id="cancelBtn" class="btn btn-danger">❌ Từ chối đơn hàng</button>
                         </div>
                     `;
