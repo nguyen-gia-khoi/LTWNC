@@ -25,13 +25,13 @@ public class OrdersController : ControllerBase
                 || string.IsNullOrWhiteSpace(order.CustomerID)
                 || string.IsNullOrWhiteSpace(order.CustomerPhone)
                 || string.IsNullOrWhiteSpace(order.CustomerAddress)
-                || order.Items == null
-                || order.Items.Count == 0)
+                || order.items == null
+                || order.items.Count == 0)
             {
                 return BadRequest("Invalid order data");
             }
 
-            foreach (var item in order.Items)
+            foreach (var item in order.items)
             {
                 if (string.IsNullOrWhiteSpace(item.ProductId)
                     || string.IsNullOrWhiteSpace(item.ColorId)
@@ -42,7 +42,7 @@ public class OrdersController : ControllerBase
                 }
             }
 
-            var duplicate = order.Items
+            var duplicate = order.items
                 .GroupBy(i => new { i.ProductId, i.ColorId, i.SizeId })
                 .Any(g => g.Count() > 1);
             if (duplicate)
@@ -56,13 +56,13 @@ public class OrdersController : ControllerBase
             var enrichedItems = new List<OrderItem>();
             decimal totalPrice = 0;
 
-            foreach (var item in order.Items)
+            foreach (var item in order.items)
             {
                 var product = await _products.Find(p => p.Id == item.ProductId).FirstOrDefaultAsync();
                 if (product == null)
                     return BadRequest($"Không tìm thấy sản phẩm với ID {item.ProductId}");
 
-                // Kiểm tra tồn kho biến thể (không dùng giá)
+                // Kiểm tra tồn kho biến thể
                 var variant = product.Variants?.FirstOrDefault(v =>
                     v.ColorId == item.ColorId && v.SizeId == item.SizeId);
 
@@ -84,7 +84,7 @@ public class OrdersController : ControllerBase
                     return StatusCode(500, $"Không thể cập nhật số lượng tồn kho cho sản phẩm {product.Name}");
                 }
 
-                // 👉 Tính giá theo Product.Price (không lấy từ variant)
+                // Tính giá theo Product.Price
                 decimal itemTotal = product.Price * item.Quantity;
                 totalPrice += itemTotal;
 
@@ -95,11 +95,10 @@ public class OrdersController : ControllerBase
                     SizeId = item.SizeId,
                     Quantity = item.Quantity,
                     CategoryId = product.CategoryId,
-                    Price = product.Price
                 });
             }
 
-            order.Items = enrichedItems;
+            order.items = enrichedItems;
             order.Price = totalPrice;
             await _orders.InsertOneAsync(order);
             return Ok(new { message = "Order placed", orderId = order.Id });
@@ -135,7 +134,7 @@ public class OrdersController : ControllerBase
             foreach (var order in orders)
             {
                 var enrichedItems = new List<object>();
-                foreach (var item in order.Items)
+                foreach (var item in order.items)
                 {
                     var product = await _products.Find(p => p.Id == item.ProductId).FirstOrDefaultAsync();
                     enrichedItems.Add(new
@@ -144,7 +143,6 @@ public class OrdersController : ControllerBase
                         item.ColorId,
                         item.SizeId,
                         item.Quantity,
-                        item.Price,
                         CategoryId = product?.CategoryId ?? "unknown"
                     });
                 }
@@ -219,10 +217,10 @@ public class OrdersController : ControllerBase
             if (existingOrder == null)
                 return NotFound(new { message = "Order not found" });
 
-            if (updatedOrder.Items == null || updatedOrder.Items.Count == 0)
+            if (updatedOrder.items == null || updatedOrder.items.Count == 0)
                 return BadRequest("Order must have at least one item");
 
-            foreach (var item in updatedOrder.Items)
+            foreach (var item in updatedOrder.items)
             {
                 if (string.IsNullOrWhiteSpace(item.ProductId)
                     || string.IsNullOrWhiteSpace(item.ColorId)
@@ -233,20 +231,19 @@ public class OrdersController : ControllerBase
                 }
             }
 
-            var duplicate = updatedOrder.Items
+            var duplicate = updatedOrder.items
                 .GroupBy(i => new { i.ProductId, i.ColorId, i.SizeId })
                 .Any(g => g.Count() > 1);
             if (duplicate)
                 return BadRequest("Order contains duplicate items");
 
             decimal totalPrice = 0;
-            foreach (var item in updatedOrder.Items)
+            foreach (var item in updatedOrder.items)
             {
                 var product = await _products.Find(p => p.Id == item.ProductId).FirstOrDefaultAsync();
                 if (product != null)
                 {
                     totalPrice += product.Price * item.Quantity;
-                    item.Price = product.Price;
                 }
             }
 
@@ -254,7 +251,7 @@ public class OrdersController : ControllerBase
                 .Set(o => o.CustomerID, updatedOrder.CustomerID)
                 .Set(o => o.CustomerPhone, updatedOrder.CustomerPhone)
                 .Set(o => o.CustomerAddress, updatedOrder.CustomerAddress)
-                .Set(o => o.Items, updatedOrder.Items)
+                .Set(o => o.items, updatedOrder.items)
                 .Set(o => o.Price, totalPrice)
                 .Set(o => o.payingStatus, string.IsNullOrWhiteSpace(updatedOrder.payingStatus) ? existingOrder.payingStatus : updatedOrder.payingStatus);
 
@@ -266,4 +263,6 @@ public class OrdersController : ControllerBase
             return StatusCode(500, $"Error updating order: {ex.Message}");
         }
     }
+
+    
 }

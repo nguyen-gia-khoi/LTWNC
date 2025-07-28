@@ -22,7 +22,7 @@ public class Order
     public decimal Price { get; set; }
 
     [BsonElement("items")]
-    public List<OrderItem> Items { get; set; }
+    public List<OrderItem> items { get; set; }
 
     [BsonElement("payingStatus")]
     public string payingStatus { get; set; } = "pending";
@@ -37,7 +37,7 @@ public class OrderItem
     public string? ProductId { get; set; }
     public string? ColorId { get; set; }
     public string? SizeId { get; set; }
-    public decimal Price { get; set; }
+    
     public int Quantity { get; set; }
     public string? CategoryId { get; set; }
 }
