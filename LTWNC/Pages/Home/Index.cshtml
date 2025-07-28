@@ -1,149 +1,131 @@
 @page
-@model LTWNC.Pages.Home.IndexModel
+@model LTWNC.Pages.HomeModel
+@{
+    ViewData["Title"] = "Thống kê doanh thu & sản phẩm";
+}
 
-<div class="home-container">
-    <div class="welcome-section">
-        <h1>Welcome to Our Website</h1>
-        <p>You have successfully logged in!</p>
-        <button type="button" id="logoutButton" class="logout-button">Logout</button>
-    </div>
-    
-    <div class="content-section">
-        <div class="card">
-            <h2>Your Profile</h2>
-            <div id="userInfo">
-                <p>Loading user information...</p>
+<div class="container py-5">
+    <h2 class="text-center mb-4">📊 Thống kê Doanh thu & Sản phẩm đã bán</h2>
+
+    <div class="card shadow-sm mb-5">
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label><strong>Chọn khoảng thời gian:</strong></label>
+                    <select id="timeFrameSelect" class="form-select">
+                        <option value="day" selected>Ngày (trong tháng)</option>
+                        <option value="month">Tháng (trong năm)</option>
+                        <option value="year">Năm</option>
+                    </select>
+                </div>
             </div>
+
+            <canvas id="combinedChart" style="max-height: 500px;"></canvas>
         </div>
     </div>
 </div>
 
-<style>
-    .home-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem;
-    }
-
-    .welcome-section {
-        text-align: center;
-        margin-bottom: 3rem;
-    }
-
-    .welcome-section h1 {
-        color: #333;
-        font-size: 2.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .content-section {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 2rem;
-    }
-
-    .card {
-        background: white;
-        border-radius: 10px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .card h2 {
-        color: #333;
-        margin-bottom: 1rem;
-        border-bottom: 2px solid #667eea;
-        padding-bottom: 0.5rem;
-    }
-
-    .logout-button {
-        background: #dc3545;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 5px;
-        cursor: pointer;
-        margin-top: 1rem;
-    }
-
-    .logout-button:hover {
-        background: #c82333;
-    }
-</style>
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
-        function deleteAllCookies() {
-            document.cookie.split(';').forEach(cookie => {
-                const eqPos = cookie.indexOf('=');
-                const name = eqPos > -1 ? cookie.substring(0, eqPos) : cookie;
-                document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        let combinedChart;
+
+        async function fetchChartData(type) {
+            const res = await fetch(`/api/Chart/Stats?timeframe=${type}`);
+            return res.ok ? res.json() : [];
+        }
+
+        async function renderCombinedChart(type = 'day') {
+            const result = await fetchChartData(type);
+            if (!Array.isArray(result)) return;
+
+            let labels = [];
+            let revenueData = [];
+            let quantityData = [];
+
+            if (type === 'day') {
+                labels = result.map(r => new Date(r.date).getDate().toString());
+            } else if (type === 'month') {
+                labels = result.map(r => `Tháng ${r.month}`);
+            } else {
+                labels = result.map(r => `Năm ${r.year}`);
+            }
+
+            revenueData = result.map(r => r.totalRevenue);
+            quantityData = result.map(r => r.totalQuantity);
+
+            const ctx = document.getElementById('combinedChart').getContext('2d');
+            if (combinedChart) combinedChart.destroy();
+
+            combinedChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Doanh thu',
+                            data: revenueData,
+                            backgroundColor: 'rgba(30, 144, 255, 0.7)',
+                            yAxisID: 'yRevenue'
+                        },
+                        {
+                            label: 'Sản phẩm đã bán',
+                            data: quantityData,
+                            backgroundColor: 'rgba(255, 165, 0, 0.7)',
+                            yAxisID: 'yQuantity'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: type === 'day' ? 'Ngày' : (type === 'month' ? 'Tháng' : 'Năm')
+                            }
+                        },
+                        yRevenue: {
+                            position: 'left',
+                            beginAtZero: true,
+                            title: { display: true, text: 'Doanh thu (₫)' },
+                            ticks: {
+                                callback: val => val.toLocaleString('vi-VN') + '₫'
+                            }
+                        },
+                        yQuantity: {
+                            position: 'right',
+                            beginAtZero: true,
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: 'Số lượng sản phẩm' },
+                            ticks: {
+                                callback: val => val.toLocaleString('vi-VN')
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    if (ctx.dataset.label === 'Doanh thu')
+                                        return ctx.parsed.y.toLocaleString('vi-VN') + '₫';
+                                    return ctx.parsed.y.toLocaleString('vi-VN') + ' sản phẩm';
+                                }
+                            }
+                        }
+                    }
+                }
             });
         }
 
-        document.addEventListener('DOMContentLoaded', async function () {
-            const logoutBtn = document.getElementById('logoutButton');
-            if (!logoutBtn) {
-                console.error('[Logout] Không tìm thấy nút Logout!');
-                return;
-            }
+        document.getElementById('timeFrameSelect').addEventListener('change', (e) => {
+            renderCombinedChart(e.target.value);
+        });
 
-            logoutBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                console.log('[Logout] Nút được click');
-
-                console.log('[Logout] Trước khi xóa cookie:', document.cookie);
-                deleteAllCookies()
-
-                setTimeout(() => {
-                    console.log('[Logout] Sau khi xóa cookie:', document.cookie);
-                    window.location.replace('/');
-                }, 300);
-            });
-
-            // Lấy token từ cookie
-            const token = document.cookie
-                .split('; ')
-                .find(row => row.startsWith('accessToken='))
-                ?.split('=')[1];
-
-            if (!token) {
-                console.warn('[Auth] Không tìm thấy token. Redirect...');
-                window.location.replace('/')
-                return;
-            }
-
-            try {
-                const response = await fetch('https://localhost:5171/api/Account/user-info', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (response.ok) {
-                    const userData = await response.json();
-                    console.log('[UserInfo] Loaded:', userData);
-                    document.getElementById('userInfo').innerHTML = `
-                        <p><strong>Email:</strong> ${userData.email}</p>
-                        <p><strong>Role:</strong> ${userData.role}</p>
-                    `;
-                } else {
-                    console.error('[UserInfo] Lỗi fetch user-info:', response.status);
-                    if (response.status === 401) {
-                        deleteCookie('accessToken');
-                        window.location.replace('/');
-                    } else {
-                        document.getElementById('userInfo').innerHTML = `
-                            <p class="error">Lỗi tải thông tin người dùng</p>
-                        `;
-                    }
-                }
-            } catch (err) {
-                console.error('[UserInfo] Exception:', err);
-                document.getElementById('userInfo').innerHTML = `
-                    <p class="error">Lỗi kết nối server</p>
-                `;
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCombinedChart();
         });
     </script>
-
+}

@@ -100,10 +100,12 @@
             return category?.categories_name || "Không rõ";
         }
 
+        // ==== ĐÃ SỬA: bổ sung "payed" ====
         function getPayingStatusLabel(status) {
             switch ((status || "").toLowerCase()) {
                 case "pending": return "Chờ thanh toán";
-                case "paid": return "Đã thanh toán";
+                case "paid":
+                case "payed": return "Đã thanh toán";
                 case "cancelled": return "Đã hủy";
                 default: return "Không rõ";
             }
@@ -111,7 +113,8 @@
         function getPayingStatusColor(status) {
             switch ((status || "").toLowerCase()) {
                 case "pending": return "text-warning";
-                case "paid": return "text-success";
+                case "paid":
+                case "payed": return "text-success";
                 case "cancelled": return "text-danger";
                 default: return "text-secondary";
             }

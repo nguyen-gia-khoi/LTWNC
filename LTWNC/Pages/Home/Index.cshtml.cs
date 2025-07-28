@@ -1,14 +1,12 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace LTWNC.Pages.Home
+namespace LTWNC.Pages
 {
-    [Authorize] // YÃªu cáº§u ngÆ°á»i dÃ¹ng pháº£i Ä‘Äƒng nháº­p Ä‘á»ƒ truy cáº­p trang nÃ y
-    public class IndexModel : PageModel
+    public class HomeModel : PageModel
     {
         public void OnGet()
         {
+            // Không c?n x? lı thêm ? ?ây, logic ???c x? lı b?ng JS thông qua Web API có s?n
         }
     }
-} 
+}

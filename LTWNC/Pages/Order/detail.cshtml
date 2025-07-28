@@ -47,7 +47,7 @@
 
             if (res.ok) {
                 alert("✅ Đơn hàng đã được khôi phục");
-                loadOrderDetail(); // Gọi lại để render đúng giao diện
+                loadOrderDetail();
             } else {
                 alert("❌ Lỗi khi khôi phục đơn hàng");
             }
@@ -155,10 +155,100 @@
             }
         }
 
+        // ============ THÊM HÀM renderEditForm ở đây ============
+
+        function renderEditForm(order) {
+            let html = `
+                <h4>Cập nhật đơn hàng</h4>
+                <form id="editOrderForm">
+                    <div class="mb-3">
+                        <label>Khách hàng</label>
+                        <input class="form-control" name="customerID" value="${order.customerID || ""}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label>Địa chỉ</label>
+                        <input class="form-control" name="customerAddress" value="${order.customerAddress || ""}">
+                    </div>
+                    <div class="mb-3">
+                        <label>Điện thoại</label>
+                        <input class="form-control" name="customerPhone" value="${order.customerPhone || ""}">
+                    </div>
+                    <div class="mb-3">
+                        <label>Trạng thái</label>
+                        <select class="form-select" name="payingStatus">
+                            <option value="pending" ${order.payingStatus==="pending" ? "selected" : ""}>Chờ thanh toán</option>
+                            <option value="paid" ${order.payingStatus==="paid" ? "selected" : ""}>Đã thanh toán</option>
+                            <option value="cancelled" ${order.payingStatus==="cancelled" ? "selected" : ""}>Đã hủy</option>
+                        </select>
+                    </div>
+                    <h5>Sản phẩm:</h5>
+                    <div id="editItems">
+            `;
+
+            (order.items || []).forEach((item, idx) => {
+                html += `
+                    <div class="mb-2">
+                        <label>Sản phẩm: ${item.productId} - Số lượng</label>
+                        <input type="number" min="1" class="form-control" name="quantity_${idx}" value="${item.quantity}">
+                        <input type="hidden" name="productId_${idx}" value="${item.productId}">
+                        <input type="hidden" name="colorId_${idx}" value="${item.colorId}">
+                        <input type="hidden" name="sizeId_${idx}" value="${item.sizeId}">
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-2">Lưu</button>
+                    <button type="button" onclick="loadOrderDetail()" class="btn btn-secondary mt-2">Hủy</button>
+                </form>
+            `;
+
+            document.getElementById("orderDetail").innerHTML = html;
+
+            document.getElementById("editOrderForm").addEventListener("submit", async function(e) {
+                e.preventDefault();
+
+                let newItems = [];
+                for (let i = 0; i < order.items.length; ++i) {
+                    newItems.push({
+                        productId: this[`productId_${i}`].value,
+                        colorId: this[`colorId_${i}`].value,
+                        sizeId: this[`sizeId_${i}`].value,
+                        quantity: parseInt(this[`quantity_${i}`].value)
+                    });
+                }
+
+                const updatedOrder = {
+                    ...order,
+                    customerAddress: this.customerAddress.value,
+                    customerPhone: this.customerPhone.value,
+                    payingStatus: this.payingStatus.value,
+                    items: newItems
+                };
+
+                const res = await fetch(`/api/orders/${order.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(updatedOrder)
+                });
+
+                if (res.ok) {
+                    alert("✅ Cập nhật đơn hàng thành công");
+                    loadOrderDetail();
+                } else {
+                    alert("❌ Lỗi khi cập nhật đơn hàng");
+                }
+            });
+        }
+
+        // ============ END renderEditForm ============
+
         function getPayingStatusLabel(status) {
             switch ((status || "").toLowerCase()) {
                 case "pending": return "Chờ thanh toán";
-                case "paid": return "Đã thanh toán";
+                case "paid":
+                case "payed": return "Đã thanh toán";
                 case "cancelled": return "Đã hủy";
                 default: return "Không rõ";
             }
