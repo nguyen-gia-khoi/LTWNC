@@ -1,6 +1,7 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
 using LTWNC.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
@@ -19,7 +20,7 @@ namespace LTWNC.Controllers
             _products =  mongoDbService.Database?.GetCollection<Product>("Products")
                 ?? throw new ArgumentNullException(nameof(mongoDbService.Database), "MongoDB Database is null");
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> CreateProductWithImages(
@@ -59,7 +60,7 @@ namespace LTWNC.Controllers
             await _products.InsertOneAsync(product);
             return Ok(new { message = "Product created", productId = product.Id });
         }
-
+        [Authorize]
         [HttpGet]
         public async Task<IActionResult> GetPagedProducts(
             [FromQuery] int page = 1,
@@ -88,6 +89,7 @@ namespace LTWNC.Controllers
                 items = products
             });
         }
+        [Authorize]
         [HttpGet("{id}")]
         public async Task<ActionResult<Product?>> GetProductById( string id)
         {
@@ -102,7 +104,7 @@ namespace LTWNC.Controllers
                 return StatusCode(500, $"Error retrieving customer: {ex.Message}");
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct([FromRoute] string id)
         {
@@ -114,18 +116,18 @@ namespace LTWNC.Controllers
             return Ok(new { message = "Product deleted successfully" });
         }
 
-
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UpdateProduct(
-    [FromRoute] string id,
-    [FromForm] string name,
-    [FromForm] decimal price,
-    [FromForm] string? description,
-    [FromForm] string variantsJson,
-    [FromForm] List<IFormFile> images,
-    [FromForm] string? categoryId,
-    [FromServices] IImageService imageService)
+            [FromRoute] string id,
+            [FromForm] string name,
+            [FromForm] decimal price,
+            [FromForm] string? description,
+            [FromForm] string variantsJson,
+            [FromForm] List<IFormFile> images,
+            [FromForm] string? categoryId,
+            [FromServices] IImageService imageService)
         {
             var existing = await _products.Find(p => p.Id == id).FirstOrDefaultAsync();
             if (existing == null)

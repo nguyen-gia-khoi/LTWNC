@@ -1,5 +1,6 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -15,8 +16,7 @@ namespace LTWNC.Controllers
         {
             _users = mongoDbService.Database.GetCollection<Users>("users");
         }
-
-        // GET: /api/users?page=1&pageSize=10
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetPagedUsers(
             [FromQuery] int page = 1,
@@ -47,6 +47,7 @@ namespace LTWNC.Controllers
         }
 
         // GET: /api/users/all
+        [Authorize(Roles = "Admin")]
         [HttpGet("all")]
         public async Task<IEnumerable<Users>> GetAllUsers()
         {
@@ -58,6 +59,7 @@ namespace LTWNC.Controllers
         }
 
         // GET: /api/users/{id}
+        [Authorize]
         [HttpGet("{id}")]
         public async Task<ActionResult<Users>> GetById(string id)
         {
@@ -90,6 +92,7 @@ namespace LTWNC.Controllers
         }
 
         // PUT: /api/users/{id}
+        [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] Users updated)
         {
@@ -106,6 +109,7 @@ namespace LTWNC.Controllers
         }
 
         // DELETE: /api/users/{id}
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {

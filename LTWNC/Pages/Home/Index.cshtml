@@ -29,10 +29,21 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
+        function getAccessTokenFromCookie() {
+            const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
+            return match ? decodeURIComponent(match[1]) : ull;
+        }
+
+        async function authFetch(url, options = {}) {
+            const token = getAccessTokenFromCookie();
+            if (!options.headers) options.headers = {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            return fetch(url, options);
+        }
         let combinedChart;
 
         async function fetchChartData(type) {
-            const res = await fetch(`/api/Chart/Stats?timeframe=${type}`);
+            const res = await authFetch(`/api/Chart/Stats?timeframe=${type}`);
             return res.ok ? res.json() : [];
         }
 

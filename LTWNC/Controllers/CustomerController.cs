@@ -24,7 +24,7 @@ namespace LTWNC.Controllers
         }
 
         [HttpGet]
-        // [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Users>>> GetAll()
         {
             try
@@ -37,7 +37,7 @@ namespace LTWNC.Controllers
                 return StatusCode(500, $"Error retrieving users: {ex.Message}");
             }
         }
-
+        [Authorize]
         [HttpGet("{id}")]
         public async Task<ActionResult<Users?>> GetById(string id)
         {
@@ -80,7 +80,7 @@ namespace LTWNC.Controllers
             }
         }
 
-
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteCustomer(string id)
         {
@@ -100,6 +100,7 @@ namespace LTWNC.Controllers
             }
         }
 
+        [Authorize]
         [HttpPatch("{id}")]
         public async Task<ActionResult> UpdateCustomer(string id, [FromBody] JsonElement updates)
         {

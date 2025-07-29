@@ -1,5 +1,6 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -15,7 +16,7 @@ namespace LTWNC.Controllers
         {
             _orders = mongoDbService.Database.GetCollection<Order>("Orders");
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpGet("Stats")]
         public async Task<IActionResult> GetRevenueAndQuantity(string timeframe = "month")
         {

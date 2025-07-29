@@ -51,6 +51,17 @@
 
 @section Scripts {
     <script>
+        function getAccessTokenFromCookie() {
+            const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
+            return match ? decodeURIComponent(match[1]) : ull;
+        }
+
+        async function authFetch(url, options = {}) {
+            const token = getAccessTokenFromCookie();
+            if (!options.headers) options.headers = {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            return fetch(url, options);
+        }
         let products = [];
         let categories = [];
         let users = [];
@@ -61,9 +72,9 @@
         async function loadInitialData() {
             try {
                 const [productRes, categoryRes, userRes] = await Promise.all([
-                    fetch('/api/products?page=1&pageSize=1000'),
-                    fetch('/api/categories/all'),
-                    fetch('/api/users/all')
+                    authFetch('/api/products?page=1&pageSize=1000'),
+                    authFetch('/api/categories/all'),
+                    authFetch('/api/users/all')
                 ]);
                 if (!productRes.ok || !categoryRes.ok || !userRes.ok) throw new Error('Không lấy được dữ liệu danh mục, sản phẩm hoặc user');
                 products = (await productRes.json()).items || [];
@@ -130,7 +141,7 @@
             const toDate = document.getElementById("toDate").value;
 
             try {
-                const orderRes = await fetch(`/api/orders?page=1&pageSize=1000`);
+                const orderRes = await authFetch(`/api/orders?page=1&pageSize=1000`);
                 if (!orderRes.ok) {
                     const text = await orderRes.text();
                     alert("Lỗi khi lấy dữ liệu ĐƠN HÀNG: " + orderRes.status + " - " + text);
