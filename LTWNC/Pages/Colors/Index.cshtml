@@ -32,12 +32,23 @@
 
 @section Scripts {
     <script>
+        function getAccessTokenFromCookie() {
+            const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
+            return match ? decodeURIComponent(match[1]) : ull;
+        }
+
+        async function authFetch(url, options = {}) {
+            const token = getAccessTokenFromCookie();
+            if (!options.headers) options.headers = {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            return fetch(url, options);
+        }
         const colorApiUrl = '/api/colors';
         let currentPage = 1;
         const pageSize = 5;
 
         async function loadColors(page = 1) {
-            const res = await fetch(`${colorApiUrl}?page=${page}&pageSize=${pageSize}`);
+            const res = await authFetch(`${colorApiUrl}?page=${page}&pageSize=${pageSize}`);
             const data = await res.json();
 
             const colors = data.items;
@@ -107,7 +118,7 @@
                 colors_code: code
             };
 
-            const res = await fetch(`${colorApiUrl}/${id}`, {
+            const res = await authFetch(`${colorApiUrl}/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedColor)
@@ -135,7 +146,7 @@
                 colors_code: code
             };
 
-            const res = await fetch(colorApiUrl, {
+            const res = await authFetch(colorApiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newColor)
@@ -154,7 +165,7 @@
         async function deleteColor(id) {
             if (!confirm('Bạn có chắc chắn muốn xóa?')) return;
 
-            const res = await fetch(`${colorApiUrl}/${id}`, {
+            const res = await authFetch(`${colorApiUrl}/${id}`, {
                 method: 'DELETE'
             });
 

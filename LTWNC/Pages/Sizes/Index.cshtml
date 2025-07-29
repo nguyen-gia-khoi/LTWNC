@@ -32,12 +32,23 @@
 
 @section Scripts {
     <script>
+         function getAccessTokenFromCookie() {
+            const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
+            return match ? decodeURIComponent(match[1]) : ull;
+        }
+
+        async function authFetch(url, options = {}) {
+            const token = getAccessTokenFromCookie();
+            if (!options.headers) options.headers = {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            return fetch(url, options);
+        }
         const sizeApiUrl = '/api/sizes';
         let currentPage = 1;
         const pageSize = 5;
 
         async function loadSizes(page = 1) {
-            const res = await fetch(`${sizeApiUrl}?page=${page}&pageSize=${pageSize}`);
+            const res = await authFetch(`${sizeApiUrl}?page=${page}&pageSize=${pageSize}`);
             const data = await res.json();
             const sizes = data.items;
 
@@ -93,7 +104,7 @@
                 sizes_code: code
             };
 
-            const res = await fetch(`${sizeApiUrl}/${id}`, {
+            const res = await authFetch(`${sizeApiUrl}/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedSize)
@@ -135,7 +146,7 @@
         async function deleteSize(id) {
             if (!confirm('Bạn có chắc chắn muốn xóa?')) return;
 
-            const res = await fetch(`${sizeApiUrl}/${id}`, {
+            const res = await authFetch(`${sizeApiUrl}/${id}`, {
                 method: 'DELETE'
             });
 

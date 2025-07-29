@@ -1,5 +1,6 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -16,6 +17,7 @@ namespace LTWNC.Controllers
             _sizes = mongoDbService.Database.GetCollection<Sizes>("sizes");
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetPagedSizes(
             [FromQuery] int page = 1,
@@ -44,7 +46,7 @@ namespace LTWNC.Controllers
                 items = sizes
             });
         }
-
+        [Authorize]
         [HttpGet("all")]
         public async Task<IEnumerable<Sizes>> GetAllSizes()
         {
@@ -54,6 +56,7 @@ namespace LTWNC.Controllers
                 .ToListAsync();
         }
 
+        [Authorize]
         [HttpGet("{id}")]
         public async Task<ActionResult<Sizes?>> GetById(string id)
         {
@@ -68,7 +71,7 @@ namespace LTWNC.Controllers
                 return StatusCode(500, $"Error retrieving size: {ex.Message}");
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<ActionResult> Post([FromBody] Sizes sizes)
         {
@@ -89,7 +92,7 @@ namespace LTWNC.Controllers
                 return StatusCode(500, $"Error creating size: {ex.Message}");
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult> Update(string id, [FromBody] Sizes sizes)
         {
@@ -114,7 +117,7 @@ namespace LTWNC.Controllers
                 return StatusCode(500, $"Error updating size: {ex.Message}");
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(string id)
         {

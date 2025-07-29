@@ -1,5 +1,6 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -16,6 +17,7 @@ namespace LTWNC.Controllers
             _colors = mongoDbService.Database.GetCollection<Colors>("colors");
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetPagedColors(
             [FromQuery] int page = 1,
@@ -44,7 +46,7 @@ namespace LTWNC.Controllers
                 items = colors
             });
         }
-
+        
         [HttpGet("all")]
         public async Task<IEnumerable<Colors>> GetAllColors()
         {
@@ -53,7 +55,7 @@ namespace LTWNC.Controllers
                 .SortByDescending(c => c.CreatedAt)
                 .ToListAsync();
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<Colors>> GetById(string id)
         {
@@ -72,7 +74,7 @@ namespace LTWNC.Controllers
                 return StatusCode(500, $"Error retrieving color: {ex.Message}");
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<ActionResult> Post([FromBody] Colors color)
         {
@@ -92,7 +94,7 @@ namespace LTWNC.Controllers
                 return StatusCode(500, $"Error creating color: {ex.Message}");
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult> Update(string id, [FromBody] Colors color)
         {
@@ -117,7 +119,7 @@ namespace LTWNC.Controllers
                 return StatusCode(500, $"Error updating color: {ex.Message}");
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(string id)
         {

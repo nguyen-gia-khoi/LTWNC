@@ -5,25 +5,8 @@
     ViewData["Title"] = "Quản lý Người dùng";
 }
 
-<h2>Quản lý Người dùng (Dùng API)</h2>
+<h2>Quản lý Người dùng</h2>
 
-<div class="input-group mb-3">
-    <input id="userName" class="form-control" placeholder="Họ tên" />
-    <input id="userEmail" class="form-control" placeholder="Email" />
-    <input id="userAge" class="form-control" placeholder="Tuổi" type="number" />
-    <input id="userPhone" class="form-control" placeholder="SĐT" />
-    <select id="userGender" class="form-select">
-        <option value="Male">Nam</option>
-        <option value="Female">Nữ</option>
-        <option value="Undefined">Khác</option>
-    </select>
-    <select id="userRole" class="form-select">
-        <option value="User">User</option>
-        <option value="Guest">Guest</option>
-    </select>
-    
-    <button class="btn btn-primary" onclick="addUser()">Thêm</button>
-</div>
 
 <table class="table table-bordered" id="userTable">
     <thead>
@@ -48,12 +31,28 @@
 
 @section Scripts {
     <script>
+            function getAccessTokenFromCookie() {
+            const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
+            return match ? decodeURIComponent(match[1]) : ull;
+        }
+
+        async function authFetch(url, options = {}) {
+            const token = getAccessTokenFromCookie();
+            if (!options.headers) options.headers = {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            return fetch(url, options);
+        }
         const userApiUrl = '/api/users';
         let currentPage = 1;
         const pageSize = 5;
 
         async function loadUsers(page = 1) {
-            const res = await fetch(`${userApiUrl}?page=${page}&pageSize=${pageSize}`);
+            const token = getAccessTokenFromCookie();
+                const res = await authFetch(`${userApiUrl}?page=${page}&pageSize=${pageSize}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
             const data = await res.json();
             const users = data.items;
 
@@ -97,6 +96,8 @@
             loadUsers();
         });
 
+       
+
         async function addUser() {
             const user = {
                 customer_name: document.getElementById('userName').value.trim(),
@@ -113,7 +114,7 @@
                 return;
             }
 
-            const res = await fetch(userApiUrl, {
+            const res = await authFetch(userApiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(user)
@@ -130,7 +131,7 @@
         async function deleteUser(id) {
             if (!confirm("Bạn chắc chắn muốn xoá?")) return;
 
-            const res = await fetch(`${userApiUrl}/${id}`, {
+            const res = await authFetch(`${userApiUrl}/${id}`, {
                 method: 'DELETE'
             });
 
@@ -168,7 +169,7 @@
                 phoneNumber: document.getElementById(`edit_phone_${id}`).value.trim()
             };
 
-            const res = await fetch(`${userApiUrl}/${id}`, {
+            const res = await authFetch(`${userApiUrl}/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated)

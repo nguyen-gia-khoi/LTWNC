@@ -1,6 +1,7 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
 using LTWNC.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -18,6 +19,7 @@ namespace LTWNC.Controllers
         }
 
         // GET: /api/categories?page=1&pageSize=10
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetPagedCategories(
             [FromQuery] int page = 1,
@@ -47,6 +49,7 @@ namespace LTWNC.Controllers
         }
 
         // GET: /api/categories/all
+        [Authorize]
         [HttpGet("all")]
         public async Task<IEnumerable<Categories>> GetAllCategories()
         {
@@ -57,6 +60,7 @@ namespace LTWNC.Controllers
         }
 
         // GET: /api/categories/{id}
+        [Authorize(Roles = "Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<Categories>> GetById(string id)
         {
@@ -75,6 +79,7 @@ namespace LTWNC.Controllers
         }
 
         // POST: /api/categories
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Categories category)
         {
@@ -93,6 +98,7 @@ namespace LTWNC.Controllers
         }
 
         // PUT: /api/categories/{id}
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] Categories updated)
         {
@@ -113,6 +119,7 @@ namespace LTWNC.Controllers
         }
 
         // DELETE: /api/categories/{id}
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {

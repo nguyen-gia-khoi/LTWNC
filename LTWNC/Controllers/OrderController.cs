@@ -1,5 +1,6 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -15,7 +16,7 @@ public class OrdersController : ControllerBase
         _orders = mongoDbService.Database.GetCollection<Order>("Orders");
         _products = mongoDbService.Database.GetCollection<Product>("Products");
     }
-
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> PlaceOrder([FromBody] Order order)
     {
@@ -109,6 +110,7 @@ public class OrdersController : ControllerBase
         }
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> GetPagedOrders(
         [FromQuery] int page = 1,
@@ -174,7 +176,7 @@ public class OrdersController : ControllerBase
             return StatusCode(500, $"Error retrieving orders: {ex.Message}");
         }
     }
-
+    [Authorize]
     [HttpGet("{id}")]
     public async Task<ActionResult<Order?>> GetOrderById(string id)
     {
@@ -189,7 +191,7 @@ public class OrdersController : ControllerBase
             return StatusCode(500, $"Error retrieving order: {ex.Message}");
         }
     }
-
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteOrder([FromRoute] string id)
     {
@@ -206,7 +208,7 @@ public class OrdersController : ControllerBase
             return StatusCode(500, $"Error deleting order: {ex.Message}");
         }
     }
-
+    [Authorize]
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateOrder([FromRoute] string id, [FromBody] Order updatedOrder)
     {
