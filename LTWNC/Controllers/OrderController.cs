@@ -177,6 +177,80 @@ public class OrdersController : ControllerBase
         }
     }
     [Authorize]
+    [HttpGet("user/{userId}")]
+    public async Task<IActionResult> GetOrdersByUserId(
+    [FromRoute] string userId,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return BadRequest("User ID is required");
+
+            if (page <= 0 || pageSize <= 0)
+                return BadRequest("Page and pageSize must be greater than 0");
+
+            var filter = Builders<Order>.Filter.Eq(o => o.CustomerID, userId);
+
+            var totalCount = await _orders.CountDocumentsAsync(filter);
+            var skip = (page - 1) * pageSize;
+
+            var orders = await _orders.Find(filter)
+                                      .SortByDescending(o => o.CreatedAt)
+                                      .Skip(skip)
+                                      .Limit(pageSize)
+                                      .ToListAsync();
+
+            var enrichedOrders = new List<object>();
+
+            foreach (var order in orders)
+            {
+                var enrichedItems = new List<object>();
+                foreach (var item in order.items)
+                {
+                    var product = await _products.Find(p => p.Id == item.ProductId).FirstOrDefaultAsync();
+                    enrichedItems.Add(new
+                    {
+                        item.ProductId,
+                        item.ColorId,
+                        item.SizeId,
+                        item.Quantity,
+                        CategoryId = product?.CategoryId ?? "unknown",
+                        ProductName = product?.Name ?? "unknown"
+                    });
+                }
+
+                enrichedOrders.Add(new
+                {
+                    order.Id,
+                    order.CustomerID,
+                    order.CustomerPhone,
+                    order.CustomerAddress,
+                    order.payingStatus,
+                    order.CreatedAt,
+                    order.Price,
+                    Items = enrichedItems
+                });
+            }
+
+            return Ok(new
+            {
+                userId = userId,
+                currentPage = page,
+                pageSize = pageSize,
+                totalOrders = totalCount,
+                totalPages = (int)Math.Ceiling((double)totalCount / pageSize),
+                orders = enrichedOrders
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error retrieving orders for user {userId}: {ex.Message}");
+        }
+    }
+
+    [Authorize]
     [HttpGet("{id}")]
     public async Task<ActionResult<Order?>> GetOrderById(string id)
     {

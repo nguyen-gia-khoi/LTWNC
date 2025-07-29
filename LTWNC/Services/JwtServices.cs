@@ -50,6 +50,7 @@ namespace LTWNC.Services
                Subject = new ClaimsIdentity(new[]
                {
                    new Claim(JwtRegisteredClaimNames.Name, request.Email),
+                   new Claim(ClaimTypes.NameIdentifier, userAccount.Id),
                    new Claim(ClaimTypes.Role, userAccount.Role.ToString())
 
                }),
