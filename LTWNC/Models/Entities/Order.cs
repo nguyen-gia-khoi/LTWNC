@@ -27,6 +27,9 @@ public class Order
     [BsonElement("payingStatus")]
     public string payingStatus { get; set; } = "pending";
 
+    [BsonElement("payPalOrder")]
+    public string? PayPalOrderId { get; set; }
+
     [BsonElement("createdAt")]
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
