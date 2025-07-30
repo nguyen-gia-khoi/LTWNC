@@ -1,5 +1,6 @@
 ﻿using LTWNC.Data;
 using LTWNC.Models.Entities;
+using LTWNC.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
@@ -11,11 +12,15 @@ public class OrdersController : ControllerBase
     private readonly IMongoCollection<Order> _orders;
     private readonly IMongoCollection<Product> _products;
 
-    public OrdersController(MongoDbService mongoDbService)
+    private readonly IPayPalService _paypalService;
+
+    public OrdersController(MongoDbService mongoDbService, IPayPalService paypalService)
     {
         _orders = mongoDbService.Database.GetCollection<Order>("Orders");
         _products = mongoDbService.Database.GetCollection<Product>("Products");
+        _paypalService = paypalService;
     }
+
     [Authorize]
     [HttpPost]
     public async Task<IActionResult> PlaceOrder([FromBody] Order order)
@@ -51,7 +56,8 @@ public class OrdersController : ControllerBase
                 return BadRequest("Order contains duplicate items");
             }
 
-            order.payingStatus ??= "pending";
+            // Luôn đặt pending khi tạo đơn hàng
+            order.payingStatus = "pending";
             order.CreatedAt = DateTime.UtcNow;
 
             var enrichedItems = new List<OrderItem>();
@@ -63,7 +69,6 @@ public class OrdersController : ControllerBase
                 if (product == null)
                     return BadRequest($"Không tìm thấy sản phẩm với ID {item.ProductId}");
 
-                // Kiểm tra tồn kho biến thể
                 var variant = product.Variants?.FirstOrDefault(v =>
                     v.ColorId == item.ColorId && v.SizeId == item.SizeId);
 
@@ -73,7 +78,6 @@ public class OrdersController : ControllerBase
                 if (variant.Quantity < item.Quantity)
                     return BadRequest($"Số lượng tồn kho của sản phẩm {product.Name} không đủ");
 
-                // Trừ tồn kho
                 var filter = Builders<Product>.Filter.Eq(p => p.Id, item.ProductId)
                              & Builders<Product>.Filter.ElemMatch(p => p.Variants,
                                  v => v.ColorId == item.ColorId && v.SizeId == item.SizeId);
@@ -85,7 +89,6 @@ public class OrdersController : ControllerBase
                     return StatusCode(500, $"Không thể cập nhật số lượng tồn kho cho sản phẩm {product.Name}");
                 }
 
-                // Tính giá theo Product.Price
                 decimal itemTotal = product.Price * item.Quantity;
                 totalPrice += itemTotal;
 
@@ -101,14 +104,32 @@ public class OrdersController : ControllerBase
 
             order.items = enrichedItems;
             order.Price = totalPrice;
+
+            // Tạo đơn PayPal
+            var usdAmount = Math.Round(totalPrice / 25000M, 2);
+            var (paypalOrderId, approveUrl) = await _paypalService.CreateOrder(usdAmount);
+
+            // Lưu PayPalOrderId vào order
+            order.PayPalOrderId = paypalOrderId;
+
             await _orders.InsertOneAsync(order);
-            return Ok(new { message = "Order placed", orderId = order.Id });
+
+            return Ok(new
+            {
+                message = "Order placed, waiting for PayPal approval",
+                orderId = order.Id,
+                totalVND = totalPrice,
+                totalUSD = usdAmount,
+                paypalOrderId,
+                approveUrl
+            });
         }
         catch (Exception ex)
         {
             return StatusCode(500, $"Error placing order: {ex.Message}");
         }
     }
+
 
     [Authorize(Roles = "Admin")]
     [HttpGet]
@@ -339,6 +360,52 @@ public class OrdersController : ControllerBase
             return StatusCode(500, $"Error updating order: {ex.Message}");
         }
     }
+    [Authorize]
+    [HttpPost("capture")]
+    public async Task<IActionResult> CapturePayPalOrder([FromBody] string paypalOrderId)
+    {
+        try
+        {
+            var success = await _paypalService.CaptureOrder(paypalOrderId);
+            if (!success)
+                return BadRequest("Capture failed.");
 
-    
+            var filter = Builders<Order>.Filter.Eq(o => o.PayPalOrderId, paypalOrderId);
+            var update = Builders<Order>.Update.Set(o => o.payingStatus, "paid");
+
+            var result = await _orders.UpdateOneAsync(filter, update);
+            if (result.ModifiedCount == 0)
+                return NotFound("No order was found.");
+
+            return Ok(new { message = "Payment successfully." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error capturing order: {ex.Message}");
+        }
+    }
+
+    [Authorize]
+    [HttpPost("cancel")]
+    public async Task<IActionResult> CancelPayPalOrder([FromBody] string paypalOrderId)
+    {
+        try
+        {
+            var filter = Builders<Order>.Filter.Eq(o => o.PayPalOrderId, paypalOrderId);
+            var update = Builders<Order>.Update.Set(o => o.payingStatus, "cancelled");
+
+            var result = await _orders.UpdateOneAsync(filter, update);
+            if (result.ModifiedCount == 0)
+                return NotFound("No order was found.");
+
+            return Ok(new { message = "Payment canceled." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error canceling order: {ex.Message}");
+        }
+    }
+
+
+
 }
