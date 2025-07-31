@@ -53,7 +53,7 @@
     <script>
         function getAccessTokenFromCookie() {
             const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
-            return match ? decodeURIComponent(match[1]) : ull;
+            return match ? decodeURIComponent(match[1]) : null;
         }
 
         async function authFetch(url, options = {}) {
@@ -64,22 +64,22 @@
         }
         let products = [];
         let categories = [];
-        let users = [];
+        let customers = [];
         const pageSize = 10;
         let currentPage = 1;
         let totalPages = 1;
 
         async function loadInitialData() {
             try {
-                const [productRes, categoryRes, userRes] = await Promise.all([
+                const [productRes, categoryRes, customerRes] = await Promise.all([
                     authFetch('/api/products?page=1&pageSize=1000'),
                     authFetch('/api/categories/all'),
-                    authFetch('/api/users/all')
+                    authFetch('/api/customer') // chỉ cần /api/customer vì controller CustomerController, GET All
                 ]);
-                if (!productRes.ok || !categoryRes.ok || !userRes.ok) throw new Error('Không lấy được dữ liệu danh mục, sản phẩm hoặc user');
+                if (!productRes.ok || !categoryRes.ok || !customerRes.ok) throw new Error('Không lấy được dữ liệu danh mục, sản phẩm hoặc khách hàng');
                 products = (await productRes.json()).items || [];
                 categories = await categoryRes.json() || [];
-                users = await userRes.json() || [];
+                customers = await customerRes.json() || [];
                 populateCategoryFilter(categories);
                 return true;
             } catch (e) {
@@ -98,10 +98,10 @@
             });
         }
 
-        function getUserNameById(id) {
+        function getCustomerNameById(id) {
             if (!id) return "Không rõ";
-            const user = users.find(u => u.id === id || u._id === id);
-            return user ? (user.customer_name || user.CustomerName || "Không rõ") : "Không rõ";
+            const customer = customers.find(c => c.id === id || c._id === id);
+            return customer ? (customer.customer_name || customer.CustomerName || "Không rõ") : "Không rõ";
         }
 
         function getCategoryNameByProduct(productId) {
@@ -111,7 +111,6 @@
             return category?.categories_name || "Không rõ";
         }
 
-        // ==== ĐÃ SỬA: bổ sung "payed" ====
         function getPayingStatusLabel(status) {
             switch ((status || "").toLowerCase()) {
                 case "pending": return "Chờ thanh toán";
@@ -175,7 +174,7 @@
                     });
 
                     const customerId = order.customerID || order.CustomerID;
-                    const customerName = getUserNameById(customerId);
+                    const customerName = getCustomerNameById(customerId);
                     const createdAt = order.createdAt || order.CreatedAt || "";
                     const phone = order.customerPhone || order.CustomerPhone || "";
                     const status = (order.payingStatus || "unknown").toLowerCase();
