@@ -7,7 +7,6 @@
 
 <h2>Quản lý Người dùng</h2>
 
-
 <table class="table table-bordered" id="userTable">
     <thead>
         <tr>
@@ -31,9 +30,9 @@
 
 @section Scripts {
     <script>
-            function getAccessTokenFromCookie() {
+        function getAccessTokenFromCookie() {
             const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
-            return match ? decodeURIComponent(match[1]) : ull;
+            return match ? decodeURIComponent(match[1]) : null;
         }
 
         async function authFetch(url, options = {}) {
@@ -42,17 +41,17 @@
             options.headers['Authorization'] = `Bearer ${token}`;
             return fetch(url, options);
         }
-        const userApiUrl = '/api/users';
+        const customerApiUrl = '/api/customer';
         let currentPage = 1;
         const pageSize = 5;
 
         async function loadUsers(page = 1) {
             const token = getAccessTokenFromCookie();
-                const res = await authFetch(`${userApiUrl}?page=${page}&pageSize=${pageSize}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+            const res = await authFetch(`${customerApiUrl}?page=${page}&pageSize=${pageSize}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             const data = await res.json();
             const users = data.items;
 
@@ -96,8 +95,6 @@
             loadUsers();
         });
 
-       
-
         async function addUser() {
             const user = {
                 customer_name: document.getElementById('userName').value.trim(),
@@ -114,7 +111,7 @@
                 return;
             }
 
-            const res = await authFetch(userApiUrl, {
+            const res = await authFetch(customerApiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(user)
@@ -131,7 +128,7 @@
         async function deleteUser(id) {
             if (!confirm("Bạn chắc chắn muốn xoá?")) return;
 
-            const res = await authFetch(`${userApiUrl}/${id}`, {
+            const res = await authFetch(`${customerApiUrl}/${id}`, {
                 method: 'DELETE'
             });
 
@@ -169,7 +166,7 @@
                 phoneNumber: document.getElementById(`edit_phone_${id}`).value.trim()
             };
 
-            const res = await authFetch(`${userApiUrl}/${id}`, {
+            const res = await authFetch(`${customerApiUrl}/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated)

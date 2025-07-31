@@ -13,9 +13,9 @@
 
 @section Scripts {
     <script>
-            function getAccessTokenFromCookie() {
+        function getAccessTokenFromCookie() {
             const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
-            return match ? decodeURIComponent(match[1]) : ull;
+            return match ? decodeURIComponent(match[1]) : null;
         }
 
         async function authFetch(url, options = {}) {
@@ -77,7 +77,8 @@
                 const order = await res.json();
                 currentOrder = order;
 
-                const customer = await fetchJson(`/api/users/${order.customerID}`, {});
+                // Sửa tại đây: Đổi /api/users/ thành /api/customer/
+                const customer = await fetchJson(`/api/customer/${order.customerID}`, {});
                 const name = customer.customer_name || customer.name || "Không rõ";
                 const phone = order.customerPhone ?? "Không rõ";
                 const address = order.customerAddress ?? "Không rõ";
