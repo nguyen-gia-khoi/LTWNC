@@ -25,18 +25,37 @@ namespace LTWNC.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<Users>>> GetAll()
+        public async Task<ActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
         {
             try
             {
-                var users = await _users.Find(FilterDefinition<Users>.Empty).ToListAsync();
-                return Ok(users);
+                var filter = Builders<Users>.Filter.Eq("role", "User");
+
+
+                var totalCount = await _users.CountDocumentsAsync(filter);
+                var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+                var users = await _users.Find(filter)
+                                        .Skip((page - 1) * pageSize)
+                                        .Limit(pageSize)
+                                        .ToListAsync();
+
+                var result = new
+                {
+                    items = users,
+                    currentPage = page,
+                    totalPages = totalPages
+                };
+
+                return Ok(result);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error retrieving users: {ex.Message}");
             }
         }
+
+
         [Authorize]
         [HttpGet("{id}")]
         public async Task<ActionResult<Users?>> GetById(string id)
