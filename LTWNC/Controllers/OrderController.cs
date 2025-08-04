@@ -3,6 +3,7 @@ using LTWNC.Models.Entities;
 using LTWNC.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 [Route("api/[controller]")]
@@ -11,14 +12,16 @@ public class OrdersController : ControllerBase
 {
     private readonly IMongoCollection<Order> _orders;
     private readonly IMongoCollection<Product> _products;
-
+    private readonly IMongoCollection<Users> _users;
     private readonly IPayPalService _paypalService;
-
-    public OrdersController(MongoDbService mongoDbService, IPayPalService paypalService)
+    private readonly IEmailService _emailService;
+    public OrdersController(MongoDbService mongoDbService, IPayPalService paypalService, IEmailService emailService)
     {
         _orders = mongoDbService.Database.GetCollection<Order>("Orders");
         _products = mongoDbService.Database.GetCollection<Product>("Products");
+        _users = mongoDbService.Database.GetCollection<Users>("Users");
         _paypalService = paypalService;
+        _emailService = emailService;
     }
 
     [Authorize]
@@ -112,6 +115,15 @@ public class OrdersController : ControllerBase
 
             // Lưu PayPalOrderId vào order
             order.PayPalOrderId = paypalOrderId;
+            // Tự động gán Email nếu thiếu
+            if (string.IsNullOrWhiteSpace(order.CustomerEmail) && !string.IsNullOrWhiteSpace(order.CustomerID))
+            {
+                var user = await _users.Find(u => u.Id == order.CustomerID).FirstOrDefaultAsync();
+                if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                {
+                    order.CustomerEmail = user.Email;
+                }
+            }
 
             await _orders.InsertOneAsync(order);
 
@@ -312,13 +324,21 @@ public class OrdersController : ControllerBase
     {
         try
         {
+            Console.WriteLine($"[DEBUG] Nhận yêu cầu cập nhật đơn hàng ID: {id}");
+
             var filter = Builders<Order>.Filter.Eq(o => o.Id, id);
             var existingOrder = await _orders.Find(filter).FirstOrDefaultAsync();
             if (existingOrder == null)
+            {
+                Console.WriteLine("[DEBUG] Không tìm thấy đơn hàng");
                 return NotFound(new { message = "Order not found" });
+            }
 
             if (updatedOrder.items == null || updatedOrder.items.Count == 0)
+            {
+                Console.WriteLine("[DEBUG] Đơn hàng không có item");
                 return BadRequest("Order must have at least one item");
+            }
 
             foreach (var item in updatedOrder.items)
             {
@@ -327,6 +347,7 @@ public class OrdersController : ControllerBase
                     || string.IsNullOrWhiteSpace(item.SizeId)
                     || item.Quantity <= 0)
                 {
+                    Console.WriteLine("[DEBUG] Đơn hàng có item không hợp lệ");
                     return BadRequest("Order contains invalid item");
                 }
             }
@@ -335,7 +356,10 @@ public class OrdersController : ControllerBase
                 .GroupBy(i => new { i.ProductId, i.ColorId, i.SizeId })
                 .Any(g => g.Count() > 1);
             if (duplicate)
+            {
+                Console.WriteLine("[DEBUG] Đơn hàng có item bị trùng");
                 return BadRequest("Order contains duplicate items");
+            }
 
             decimal totalPrice = 0;
             foreach (var item in updatedOrder.items)
@@ -347,6 +371,8 @@ public class OrdersController : ControllerBase
                 }
             }
 
+            Console.WriteLine("[DEBUG] Tổng tiền đơn hàng sau cập nhật: " + totalPrice);
+
             var update = Builders<Order>.Update
                 .Set(o => o.CustomerID, updatedOrder.CustomerID)
                 .Set(o => o.CustomerPhone, updatedOrder.CustomerPhone)
@@ -354,16 +380,60 @@ public class OrdersController : ControllerBase
                 .Set(o => o.items, updatedOrder.items)
                 .Set(o => o.Price, totalPrice)
                 .Set(o => o.payingStatus, string.IsNullOrWhiteSpace(updatedOrder.payingStatus) ? existingOrder.payingStatus : updatedOrder.payingStatus)
-                .Set(o => o.deliveryStatus, string.IsNullOrWhiteSpace(updatedOrder.deliveryStatus) ? existingOrder.deliveryStatus : updatedOrder.deliveryStatus); // Mới: Cập nhật trạng thái giao hàng
+                .Set(o => o.deliveryStatus, string.IsNullOrWhiteSpace(updatedOrder.deliveryStatus) ? existingOrder.deliveryStatus : updatedOrder.deliveryStatus);
 
             await _orders.UpdateOneAsync(filter, update);
+            Console.WriteLine("[DEBUG] Cập nhật đơn hàng vào MongoDB thành công");
+
+            Console.WriteLine($"[DEBUG] deliveryStatus hiện tại: {existingOrder.deliveryStatus}, deliveryStatus mới: {updatedOrder.deliveryStatus}");
+
+            if (!string.IsNullOrWhiteSpace(updatedOrder.deliveryStatus) &&
+                updatedOrder.deliveryStatus.ToLower() == "delivered" &&
+                updatedOrder.deliveryStatus != existingOrder.deliveryStatus)
+            {
+                Console.WriteLine("[DEBUG] Điều kiện gửi email đã đúng");
+
+                try
+                {
+                    Console.WriteLine($"[DEBUG] existingOrder.CustomerID = {existingOrder.CustomerID}");
+
+                    var emailToSend = existingOrder.CustomerEmail;
+                    if (!string.IsNullOrWhiteSpace(emailToSend))
+                    {
+                        var subject = "Đơn hàng của bạn đã được giao thành công!";
+                        var body = $"Xin chào {existingOrder.CustomerID ?? "Quý khách"},\n\n" +
+                                   $"Đơn hàng của bạn (mã: {existingOrder.Id}) đã được giao thành công.\n" +
+                                   $"Cảm ơn bạn đã mua sắm tại UniStyle!\n\nTrân trọng,\nUniStyle Team";
+                        Console.WriteLine($"[DEBUG] Email sẽ gửi tới: {emailToSend}");
+
+                        await _emailService.SendEmail(emailToSend, subject, body);
+                        Console.WriteLine("[DEBUG] Đã gửi email xác nhận giao hàng thành công đến: " + emailToSend);
+                    }
+                    else
+                    {
+                        Console.WriteLine("[DEBUG] Không tìm thấy email trong đơn hàng (CustomerEmail rỗng)");
+                    }
+
+                }
+                catch (Exception emailEx)
+                {
+                    Console.WriteLine($"Lỗi khi gửi email: {emailEx.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("[DEBUG] Không đủ điều kiện để gửi email (deliveryStatus không đổi hoặc không phải 'delivered')");
+            }
+
             return Ok(new { message = "Order updated successfully" });
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[ERROR] Có lỗi xảy ra khi cập nhật đơn hàng: {ex.Message}");
             return StatusCode(500, $"Error updating order: {ex.Message}");
         }
     }
+
     [Authorize]
     [HttpPost("capture")]
     public async Task<IActionResult> CapturePayPalOrder([FromBody] string paypalOrderId)

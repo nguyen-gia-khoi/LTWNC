@@ -18,6 +18,8 @@ public class Order
     [BsonElement("customerAddress")]
     public string? CustomerAddress { get; set; }
 
+    [BsonElement("customerEmail")]
+    public string? CustomerEmail { get; set; }
     [BsonElement("price")]
     public decimal Price { get; set; }
 

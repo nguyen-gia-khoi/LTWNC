@@ -1,7 +1,8 @@
 ﻿using LTWNC.Services;
-using PayPalOrder = PayPalCheckoutSdk.Orders.Order;
 using PayPalCheckoutSdk.Orders;
 using PayPalHttp;
+using System.Globalization;
+using PayPalOrder = PayPalCheckoutSdk.Orders.Order;
 
 public class PayPalService : IPayPalService
 {
@@ -26,13 +27,14 @@ public class PayPalService : IPayPalService
                     AmountWithBreakdown = new AmountWithBreakdown
                     {
                         CurrencyCode = "USD",
-                        Value = usdAmount.ToString("F2")
+                        Value = usdAmount.ToString("F2", CultureInfo.InvariantCulture)
+
                     }
                 }
             },
             ApplicationContext = new ApplicationContext
             {
-                ReturnUrl = "https://localhost:5171/Home/Index",
+                ReturnUrl = "https://unistyle40th.vercel.app/payment-success",
                 CancelUrl = "https://your-frontend.com/paypal-cancel"
             }
         });
@@ -44,35 +46,7 @@ public class PayPalService : IPayPalService
         return (result.Id, approveUrl);
     }
 
-    //public async Task<object> CaptureOrder(string orderId)
-    //{
-    //    var request = new OrdersCaptureRequest(orderId);
-    //    request.RequestBody(new OrderActionRequest());
-    //    var response = await _client.Client().Execute(request);
-    //    return response.Result<Order>();
-    //}
-    //    public async Task<bool> CaptureOrder(string orderId)
-    //{
-    //    var request = new OrdersCaptureRequest(orderId);
-    //    request.RequestBody(new OrderActionRequest());
-
-    //    try
-    //    {
-    //        var response = await _client.Client().Execute(request);
-
-    //        // Dùng dynamic nếu không chắc chắn kiểu dữ liệu
-    //        dynamic result = response.Result<dynamic>();
-
-    //        string status = result?.status;
-
-    //        return status == "COMPLETED";
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        Console.WriteLine($"Capture PayPal failed: {ex.Message}");
-    //        return false;
-    //    }
-    //}
+   
     public async Task<bool> CaptureOrder(string orderId)
     {
         var request = new OrdersCaptureRequest(orderId);
