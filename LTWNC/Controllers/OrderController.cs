@@ -58,6 +58,7 @@ public class OrdersController : ControllerBase
 
             // Luôn đặt pending khi tạo đơn hàng
             order.payingStatus = "pending";
+            order.deliveryStatus = "pending"; // Mới: Khởi tạo trạng thái giao hàng
             order.CreatedAt = DateTime.UtcNow;
 
             var enrichedItems = new List<OrderItem>();
@@ -177,6 +178,7 @@ public class OrdersController : ControllerBase
                     order.CustomerPhone,
                     order.CustomerAddress,
                     order.payingStatus,
+                    order.deliveryStatus, // Mới: Thêm trạng thái giao hàng vào response
                     order.CreatedAt,
                     order.Price,
                     Items = enrichedItems
@@ -249,6 +251,7 @@ public class OrdersController : ControllerBase
                     order.CustomerPhone,
                     order.CustomerAddress,
                     order.payingStatus,
+                    order.deliveryStatus, // Mới: Thêm trạng thái giao hàng vào response
                     order.CreatedAt,
                     order.Price,
                     Items = enrichedItems
@@ -350,7 +353,8 @@ public class OrdersController : ControllerBase
                 .Set(o => o.CustomerAddress, updatedOrder.CustomerAddress)
                 .Set(o => o.items, updatedOrder.items)
                 .Set(o => o.Price, totalPrice)
-                .Set(o => o.payingStatus, string.IsNullOrWhiteSpace(updatedOrder.payingStatus) ? existingOrder.payingStatus : updatedOrder.payingStatus);
+                .Set(o => o.payingStatus, string.IsNullOrWhiteSpace(updatedOrder.payingStatus) ? existingOrder.payingStatus : updatedOrder.payingStatus)
+                .Set(o => o.deliveryStatus, string.IsNullOrWhiteSpace(updatedOrder.deliveryStatus) ? existingOrder.deliveryStatus : updatedOrder.deliveryStatus); // Mới: Cập nhật trạng thái giao hàng
 
             await _orders.UpdateOneAsync(filter, update);
             return Ok(new { message = "Order updated successfully" });
@@ -392,7 +396,9 @@ public class OrdersController : ControllerBase
         try
         {
             var filter = Builders<Order>.Filter.Eq(o => o.PayPalOrderId, paypalOrderId);
-            var update = Builders<Order>.Update.Set(o => o.payingStatus, "cancelled");
+            var update = Builders<Order>.Update
+                .Set(o => o.payingStatus, "cancelled")
+                .Set(o => o.deliveryStatus, "cancelled"); // Mới: Cập nhật trạng thái giao hàng khi hủy
 
             var result = await _orders.UpdateOneAsync(filter, update);
             if (result.ModifiedCount == 0)
@@ -405,7 +411,4 @@ public class OrdersController : ControllerBase
             return StatusCode(500, $"Error canceling order: {ex.Message}");
         }
     }
-
-
-
 }

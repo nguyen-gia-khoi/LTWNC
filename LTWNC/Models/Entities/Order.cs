@@ -24,6 +24,9 @@ public class Order
     [BsonElement("items")]
     public List<OrderItem> items { get; set; }
 
+    [BsonElement("deliveryStatus")]  // Mới: Thêm trường trạng thái giao hàng
+    public string deliveryStatus { get; set; } = "pending";
+
     [BsonElement("payingStatus")]
     public string payingStatus { get; set; } = "pending";
 

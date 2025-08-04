@@ -1,0 +1,239 @@
+﻿@page
+@model LTWNC.Pages.Order.editModel
+@{
+    ViewData["Title"] = "Cập nhật đơn hàng";
+}
+
+<h2>Cập nhật Đơn hàng</h2>
+
+<div id="editOrderContainer" class="border p-3 rounded" style="background:#f1f5f9;">
+    <p>Đang tải dữ liệu đơn hàng...</p>
+</div>
+
+@section Scripts {
+    <script>
+        function getAccessTokenFromCookie() {
+            const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
+            return match ? decodeURIComponent(match[1]) : null;
+        }
+
+        async function authFetch(url, options = {}) {
+            const token = getAccessTokenFromCookie();
+            if (!options.headers) options.headers = {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            return fetch(url, options);
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('id');
+        let orderData;
+
+        function renderEditForm(order) {
+            orderData = order;
+
+            let html = `
+                <form id="editOrderForm">
+                    <div class="mb-3">
+                        <label>Order ID</label>
+                        <input class="form-control" value="${order.id}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label>Khách hàng ID</label>
+                            <input class="form-control" value="${getUserName(order.customerID)}" readonly>
+                            <input type="hidden" name="customerID" value="${order.customerID}">
+                    </div>
+                    <div class="mb-3">
+                        <label>Địa chỉ</label>
+                        <input class="form-control" name="customerAddress" value="${order.customerAddress || ''}">
+                    </div>
+                    <div class="mb-3">
+                        <label>Điện thoại</label>
+                        <input class="form-control" name="customerPhone" value="${order.customerPhone || ''}">
+                    </div>
+                    <div class="mb-3">
+                        <label>Trạng thái thanh toán</label>
+                        <select class="form-select" name="payingStatus">
+                            <option value="pending" ${order.payingStatus === "pending" ? "selected" : ""}>Chờ thanh toán</option>
+                            <option value="paid" ${order.payingStatus === "paid" ? "selected" : ""}>Đã thanh toán</option>
+                            <option value="cancelled" ${order.payingStatus === "cancelled" ? "selected" : ""}>Đã hủy</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Trạng thái giao hàng</label>
+                        <select class="form-select" name="shippingStatus">
+                            <option value="processing" ${order.shippingStatus === 'processing' ? 'selected' : ''}>Đang xử lý</option>
+                            <option value="shipping" ${order.shippingStatus === 'shipping' ? 'selected' : ''}>Đang giao hàng</option>
+                            <option value="delivered" ${order.shippingStatus === 'delivered' ? 'selected' : ''}>Đã giao hàng</option>
+                            <option value="failed" ${order.shippingStatus === 'failed' ? 'selected' : ''}>Giao hàng thất bại</option>
+                        </select>
+                    </div>
+
+                    <hr/>
+                    <h5>Sản phẩm trong đơn hàng:</h5>
+                    <div id="editItems">
+            `;
+
+            (order.items || []).forEach((item, idx) => {
+                html += renderItemRow(item, idx);
+            });
+
+            html += `
+                    </div>
+                    <button type="button" class="btn btn-success mt-2" onclick="addNewItem()">➕ Thêm sản phẩm</button>
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary">💾 Lưu thay đổi</button>
+                        <a href="/Order/Detail?id=${order.id}" class="btn btn-secondary">❌ Hủy</a>
+                    </div>
+                </form>
+            `;
+
+            document.getElementById("editOrderContainer").innerHTML = html;
+
+            document.getElementById("editOrderForm").addEventListener("submit", submitForm);
+        }
+
+        function renderItemRow(item, idx) {
+            return `
+                <div class="mb-2 p-2 border rounded position-relative item-row" data-idx="${idx}">
+                    <button type="button" class="btn-close position-absolute top-0 end-0 m-2" onclick="removeItem(${idx})" aria-label="Xóa"></button>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label>Product ID</label>
+                                <input class="form-control" value="${getProductName(item.productId)}" readonly>
+                                <input type="hidden" name="productId_${idx}" value="${item.productId}">
+
+                        </div>
+                        <div class="col-md-3">
+                            <label>Color ID</label>
+                                    <input class="form-control" value="${getColorName(item.colorId)}" readonly>
+        <input type="hidden" name="colorId_${idx}" value="${item.colorId}">
+
+                        </div>
+                        <div class="col-md-3">
+                            <label>Size ID</label>
+                                    <input class="form-control" value="${getSizeName(item.sizeId)}" readonly>
+        <input type="hidden" name="sizeId_${idx}" value="${item.sizeId}">
+
+                        </div>
+                        <div class="col-md-3">
+                            <label>Số lượng</label>
+                            <input class="form-control" type="number" name="quantity_${idx}" value="${item.quantity || 1}" min="1">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addNewItem() {
+            const container = document.getElementById("editItems");
+            const idx = container.children.length;
+            const newItem = { productId: '', colorId: '', sizeId: '', quantity: 1 };
+            const newRow = document.createElement("div");
+            newRow.innerHTML = renderItemRow(newItem, idx);
+            container.appendChild(newRow.firstElementChild);
+        }
+
+        function removeItem(idxToRemove) {
+            const itemsContainer = document.getElementById("editItems");
+            const rows = Array.from(itemsContainer.getElementsByClassName("item-row"));
+            rows.forEach(row => {
+                const idx = parseInt(row.dataset.idx);
+                if (idx === idxToRemove) row.remove();
+            });
+        }
+
+        async function submitForm(e) {
+            e.preventDefault();
+            const form = e.target;
+            const items = [];
+            const container = document.getElementById("editItems");
+            const rows = container.getElementsByClassName("item-row");
+
+            for (let i = 0; i < rows.length; i++) {
+                const idx = rows[i].dataset.idx;
+                items.push({
+                    productId: form[`productId_${idx}`].value,
+                    colorId: form[`colorId_${idx}`].value,
+                    sizeId: form[`sizeId_${idx}`].value,
+                    quantity: parseInt(form[`quantity_${idx}`].value)
+                });
+            }
+
+            const updatedOrder = {
+                ...orderData,
+                customerAddress: form.customerAddress.value,
+                customerPhone: form.customerPhone.value,
+                payingStatus: form.payingStatus.value,
+                shippingStatus: form.shippingStatus.value,
+                items: items
+            };
+
+            const res = await authFetch(`/api/orders/${orderId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedOrder)
+            });
+
+            if (res.ok) {
+                alert("✅ Cập nhật đơn hàng thành công");
+                window.location.href = `/Order/Detail?id=${orderId}`;
+            } else {
+                const errorData = await res.json().catch(() => ({ message: 'Lỗi không xác định từ server.' }));
+                alert(`❌ Cập nhật thất bại: ${errorData.message}`);
+            }
+        }
+
+        async function loadOrderForEditing() {
+            if (!orderId) {
+                document.getElementById("editOrderContainer").innerHTML = `<div class="alert alert-danger">Không tìm thấy mã đơn hàng!</div>`;
+                return;
+            }
+            try {
+                await fetchAllData(); // 👈 Thêm dòng này để lấy dữ liệu tên
+                const res = await authFetch(`/api/orders/${orderId}`);
+                if (!res.ok) throw new Error("Không thể tải dữ liệu đơn hàng.");
+                const order = await res.json();
+                renderEditForm(order);
+            } catch (err) {
+                document.getElementById("editOrderContainer").innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", loadOrderForEditing);
+                let users = [], products = [], colors = [], sizes = [];
+
+        async function fetchAllData() {
+            const [usersRes, productsRes, colorsRes, sizesRes] = await Promise.all([
+                authFetch('/api/customer?page=1&pageSize=100'),
+                authFetch('/api/products?page=1&pageSize=100'),
+                authFetch('/api/colors/all'),
+                authFetch('/api/sizes/all')
+            ]);
+
+            users = (await usersRes.json()).items || [];
+            products = (await productsRes.json()).items || [];
+            colors = await colorsRes.json();
+            sizes = await sizesRes.json();
+        }
+
+        function getUserName(userId) {
+            const user = users.find(u => u.id === userId);
+            return user ? user.customer_name : 'Không rõ';
+        }
+
+        function getProductName(productId) {
+            const product = products.find(p => p.id === productId);
+            return product ? product.name : 'Không rõ';
+        }
+
+        function getColorName(colorId) {
+            const color = colors.find(c => c.id === colorId);
+            return color ? color.colors_name : 'Không rõ';
+        }
+
+        function getSizeName(sizeId) {
+            const size = sizes.find(s => s.id === sizeId);
+            return size ? size.size_name : 'Không rõ';
+        }
+    </script>
+}
