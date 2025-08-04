@@ -55,6 +55,7 @@
             const data = await res.json();
             const users = data.items;
 
+
             const tbody = document.querySelector('#userTable tbody');
             tbody.innerHTML = '';
 
@@ -140,44 +141,6 @@
             }
         }
 
-        function editUser(id) {
-            const fields = ["name", "email", "age", "gender", "role", "phone"];
-            fields.forEach(f => {
-                const span = document.getElementById(`${f}_${id}`);
-                const val = span.textContent;
-                span.innerHTML = `<input class="form-control" id="edit_${f}_${id}" value="${val}"/>`;
-            });
-
-            const btnCell = document.getElementById(`name_${id}`).parentElement.parentElement.querySelector("td:last-child");
-            btnCell.innerHTML = `
-                <button class="btn btn-success btn-sm" onclick="saveUser('${id}')">Lưu</button>
-                <button class="btn btn-secondary btn-sm" onclick="loadUsers(${currentPage})">Hủy</button>
-            `;
-        }
-
-        async function saveUser(id) {
-            const updated = {
-                id: id,
-                customer_name: document.getElementById(`edit_name_${id}`).value.trim(),
-                email: document.getElementById(`edit_email_${id}`).value.trim(),
-                age: parseInt(document.getElementById(`edit_age_${id}`).value),
-                gender: document.getElementById(`edit_gender_${id}`).value.trim(),
-                role: document.getElementById(`edit_role_${id}`).value.trim(),
-                phoneNumber: document.getElementById(`edit_phone_${id}`).value.trim()
-            };
-
-            const res = await authFetch(`${customerApiUrl}/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updated)
-            });
-
-            if (res.ok) {
-                alert("Cập nhật thành công");
-                loadUsers(currentPage);
-            } else {
-                alert("Cập nhật thất bại");
-            }
-        }
+        
     </script>
 }

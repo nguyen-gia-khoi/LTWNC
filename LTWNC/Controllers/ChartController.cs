@@ -22,7 +22,7 @@ namespace LTWNC.Controllers
         {
             try
             {
-                var filter = Builders<Order>.Filter.Eq(o => o.payingStatus, "payed");
+                var filter = Builders<Order>.Filter.Eq(o => o.payingStatus, "paid");
                 var orders = await _orders.Find(filter).ToListAsync();
                 var now = DateTime.UtcNow;
 
