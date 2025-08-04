@@ -7,12 +7,15 @@
 
 <h2>Chi tiết đơn hàng</h2>
 
-<div id="orderDetail" class="border p-3 rounded" style="background:#f1f5f9;"></div>
+<div id="orderDetail" class="border p-3 rounded" style="background:#f1f5f9;">
+    <p>Đang tải chi tiết đơn hàng...</p>
+</div>
 
-<a href="javascript:history.back()" class="btn btn-secondary mt-3">⬅️ Quay lại</a>
+<a href="/Order/Index" class="btn btn-secondary mt-3">⬅️ Quay lại danh sách</a>
 
 @section Scripts {
     <script>
+        // --- CÁC HÀM TIỆN ÍCH ---
         function getAccessTokenFromCookie() {
             const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
             return match ? decodeURIComponent(match[1]) : null;
@@ -24,38 +27,57 @@
             options.headers['Authorization'] = `Bearer ${token}`;
             return fetch(url, options);
         }
+
+        function getPayingStatusLabel(status) {
+            switch ((status || "").toLowerCase()) {
+                case "pending": return "Chờ thanh toán";
+                case "paid": case "payed": return "Đã thanh toán";
+                case "cancelled": return "Đã hủy";
+                default: return "Không rõ";
+            }
+        }
+
+        // === ĐÃ THÊM: HÀM LẤY NHÃN TRẠNG THÁI GIAO HÀNG ===
+        function getShippingStatusLabel(status) {
+            switch ((status || "").toLowerCase()) {
+                case "pending": return "Đang xử lý";
+                case "shipping": return "Đang giao hàng";
+                case "delivered": return "Đã giao hàng";
+                case "failed": return "Giao hàng thất bại";
+                default: return "Chưa có thông tin";
+            }
+        }
+
+        // --- KHỞI TẠO BIẾN ---
         const urlParams = new URLSearchParams(window.location.search);
         const orderId = urlParams.get('id');
         let currentOrder = null;
 
-        document.addEventListener("DOMContentLoaded", async () => {
-            await loadOrderDetail();
-
-            document.body.addEventListener("click", (e) => {
-                if (e.target.id === "editBtn") {
-                    renderEditForm(currentOrder);
-                } else if (e.target.id === "cancelBtn") {
-                    rejectOrder(currentOrder);
-                } else if (e.target.id === "restoreBtn") {
-                    restoreOrder(currentOrder);
-                }
-            });
+        // Gắn Event Listener vào body ngay từ đầu
+        document.body.addEventListener("click", (e) => {
+            if (!currentOrder) return;
+            if (e.target.id === "cancelBtn") {
+                rejectOrder(currentOrder);
+            } else if (e.target.id === "restoreBtn") {
+                restoreOrder(currentOrder);
+            }
         });
 
+        // Tải dữ liệu khi trang được load
+        document.addEventListener("DOMContentLoaded", () => {
+            loadOrderDetail();
+        });
+
+
+        // --- CÁC HÀM XỬ LÝ HÀNH ĐỘNG ---
         async function restoreOrder(order) {
             if (!confirm("Bạn có chắc muốn khôi phục đơn hàng này?")) return;
-
-            const updatedOrder = {
-                ...order,
-                payingStatus: "pending"
-            };
-
+            const updatedOrder = { ...order, payingStatus: "pending" };
             const res = await authFetch(`/api/orders/${order.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updatedOrder)
             });
-
             if (res.ok) {
                 alert("✅ Đơn hàng đã được khôi phục");
                 loadOrderDetail();
@@ -64,243 +86,102 @@
             }
         }
 
-        async function loadOrderDetail() {
-            if (!orderId) {
-                document.getElementById("orderDetail").innerHTML = "Không tìm thấy mã đơn hàng!";
-                return;
-            }
-
-            try {
-                const res = await authFetch(`/api/orders/${orderId}`);
-                if (!res.ok) throw new Error("Không tìm thấy đơn hàng");
-
-                const order = await res.json();
-                currentOrder = order;
-
-                // Sửa tại đây: Đổi /api/users/ thành /api/customer/
-                const customer = await fetchJson(`/api/customer/${order.customerID}`, {});
-                const name = customer.customer_name || customer.name || "Không rõ";
-                const phone = order.customerPhone ?? "Không rõ";
-                const address = order.customerAddress ?? "Không rõ";
-
-                let html = `
-                    <p><strong>Order ID:</strong> ${order.id}</p>
-                    <p><strong>Khách hàng:</strong> ${name}</p>
-                    <p><strong>Điện thoại:</strong> ${phone}</p>
-                    <p><strong>Địa chỉ:</strong> ${address}</p>
-                    <p><strong>Ngày tạo:</strong> ${new Date(order.createdAt).toLocaleString()}</p>
-                    <p><strong>Trạng thái thanh toán:</strong> ${getPayingStatusLabel(order.payingStatus)}</p>
-                    <hr />
-                    <h5>Sản phẩm trong đơn hàng:</h5>
-                    <table class="table table-bordered text-center">
-                        <thead>
-                            <tr>
-                                <th>Tên SP</th>
-                                <th>Danh mục</th>
-                                <th>Màu</th>
-                                <th>Size</th>
-                                <th>Số lượng</th>
-                                <th>Giá</th>
-                                <th>Tổng</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                let total = 0;
-
-                for (const item of order.items) {
-                    const product = await fetchJson(`/api/products/${item.productId}`, { name: "Không rõ", price: 0, categoryId: null });
-                    const category = await fetchJson(`/api/categories/${product.categoryId}`, { categories_name: "Không rõ" });
-                    const color = await fetchJson(`/api/colors/${item.colorId}`, { colors_name: "Không rõ" });
-                    const size = await fetchJson(`/api/sizes/${item.sizeId}`, { size_name: "Không rõ" });
-
-                    const quantity = item.quantity;
-                    const price = item.price || product.price || 0;
-                    const itemTotal = price * quantity;
-                    total += itemTotal;
-
-                    html += `
-                        <tr>
-                            <td>${product.name}</td>
-                            <td>${category.categories_name}</td>
-                            <td>${color.colors_name}</td>
-                            <td>${size.size_name}</td>
-                            <td>${quantity}</td>
-                            <td>${price.toLocaleString()}₫</td>
-                            <td>${itemTotal.toLocaleString()}₫</td>
-                        </tr>
-                    `;
-                }
-
-                html += `
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <th colspan="6" class="text-end">Tổng cộng:</th>
-                                <th>${total.toLocaleString()}₫</th>
-                            </tr>
-                        </tfoot>
-                    </table>
-                `;
-
-                // Thêm nút theo trạng thái
-                if (order.payingStatus === "cancelled") {
-                    html += `
-                        <div class="d-flex gap-2 mt-3">
-                            <button id="restoreBtn" class="btn btn-success">🔄 Khôi phục đơn hàng</button>
-                        </div>
-                    `;
-                } else {
-                    html += `
-                        <div class="d-flex gap-2 mt-3">
-                            <button id="editBtn" class="btn btn-warning">✏️ Cập nhật đơn hàng</button>
-                            <button id="cancelBtn" class="btn btn-danger">❌ Từ chối đơn hàng</button>
-                        </div>
-                    `;
-                }
-
-                document.getElementById("orderDetail").innerHTML = html;
-
-            } catch (err) {
-                document.getElementById("orderDetail").innerHTML = `<div class="text-danger">${err.message}</div>`;
-            }
-        }
-
-        // ============ THÊM HÀM renderEditForm ở đây ============
-
-        function renderEditForm(order) {
-            let html = `
-                <h4>Cập nhật đơn hàng</h4>
-                <form id="editOrderForm">
-                    <div class="mb-3">
-                        <label>Khách hàng</label>
-                        <input class="form-control" name="customerID" value="${order.customerID || ""}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label>Địa chỉ</label>
-                        <input class="form-control" name="customerAddress" value="${order.customerAddress || ""}">
-                    </div>
-                    <div class="mb-3">
-                        <label>Điện thoại</label>
-                        <input class="form-control" name="customerPhone" value="${order.customerPhone || ""}">
-                    </div>
-                    <div class="mb-3">
-                        <label>Trạng thái</label>
-                        <select class="form-select" name="payingStatus">
-                            <option value="pending" ${order.payingStatus==="pending" ? "selected" : ""}>Chờ thanh toán</option>
-                            <option value="paid" ${order.payingStatus==="paid" ? "selected" : ""}>Đã thanh toán</option>
-                            <option value="cancelled" ${order.payingStatus==="cancelled" ? "selected" : ""}>Đã hủy</option>
-                        </select>
-                    </div>
-                    <h5>Sản phẩm:</h5>
-                    <div id="editItems">
-            `;
-
-            (order.items || []).forEach((item, idx) => {
-                html += `
-                    <div class="mb-2">
-                        <label>Sản phẩm: ${item.productId} - Số lượng</label>
-                        <input type="number" min="1" class="form-control" name="quantity_${idx}" value="${item.quantity}">
-                        <input type="hidden" name="productId_${idx}" value="${item.productId}">
-                        <input type="hidden" name="colorId_${idx}" value="${item.colorId}">
-                        <input type="hidden" name="sizeId_${idx}" value="${item.sizeId}">
-                    </div>
-                `;
-            });
-
-            html += `
-                    </div>
-                    <button type="submit" class="btn btn-primary mt-2">Lưu</button>
-                    <button type="button" onclick="loadOrderDetail()" class="btn btn-secondary mt-2">Hủy</button>
-                </form>
-            `;
-
-            document.getElementById("orderDetail").innerHTML = html;
-
-            document.getElementById("editOrderForm").addEventListener("submit", async function(e) {
-                e.preventDefault();
-
-                let newItems = [];
-                for (let i = 0; i < order.items.length; ++i) {
-                    newItems.push({
-                        productId: this[`productId_${i}`].value,
-                        colorId: this[`colorId_${i}`].value,
-                        sizeId: this[`sizeId_${i}`].value,
-                        quantity: parseInt(this[`quantity_${i}`].value)
-                    });
-                }
-
-                const updatedOrder = {
-                    ...order,
-                    customerAddress: this.customerAddress.value,
-                    customerPhone: this.customerPhone.value,
-                    payingStatus: this.payingStatus.value,
-                    items: newItems
-                };
-
-                const res = await authFetch(`/api/orders/${order.id}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(updatedOrder)
-                });
-
-                if (res.ok) {
-                    alert("✅ Cập nhật đơn hàng thành công");
-                    loadOrderDetail();
-                } else {
-                    alert("❌ Lỗi khi cập nhật đơn hàng");
-                }
-            });
-        }
-
-        // ============ END renderEditForm ============
-
-        function getPayingStatusLabel(status) {
-            switch ((status || "").toLowerCase()) {
-                case "pending": return "Chờ thanh toán";
-                case "paid":
-                case "payed": return "Đã thanh toán";
-                case "cancelled": return "Đã hủy";
-                default: return "Không rõ";
-            }
-        }
-
         async function rejectOrder(order) {
             if (!confirm("Bạn có chắc muốn từ chối đơn hàng này?")) return;
-
-            const updatedOrder = {
-                ...order,
-                payingStatus: "cancelled"
-            };
-
+            const updatedOrder = { ...order, payingStatus: "cancelled" };
             const res = await authFetch(`/api/orders/${order.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updatedOrder)
             });
-
             if (res.ok) {
                 alert("✅ Đã từ chối đơn hàng");
-                location.reload();
+                loadOrderDetail();
             } else {
                 alert("❌ Lỗi khi cập nhật trạng thái đơn hàng");
             }
         }
 
-        async function fetchJson(url, fallback = {}) {
+        // --- HÀM TẢI VÀ HIỂN THỊ DỮ LIỆU CHÍNH ---
+        async function loadOrderDetail() {
+            if (!orderId) {
+                document.getElementById("orderDetail").innerHTML = `<div class="alert alert-danger">Không tìm thấy mã đơn hàng!</div>`;
+                return;
+            }
+
             try {
-                const token = getAccessTokenFromCookie();
+                const [orderRes, productsRes, colorsRes, sizesRes] = await Promise.all([
+                    authFetch(`/api/orders/${orderId}`),
+                    authFetch('/api/products?page=1&pageSize=1000'),
+                    authFetch('/api/colors/all'),
+                    authFetch('/api/sizes/all')
+                ]);
 
-                const res = await fetch(url, {
-                    headers: token ? {
-                        'Authorization': `Bearer ${token}`
-                    } : {}
-                });
+                if (!orderRes.ok) throw new Error("Không tìm thấy đơn hàng hoặc không có quyền truy cập.");
 
-                return res.ok ? await res.json() : fallback;
-            } catch {
-                return fallback;
+                const order = await orderRes.json();
+                currentOrder = order;
+
+                const allProducts = (await productsRes.json()).items || [];
+                const allColors = await colorsRes.json();
+                const allSizes = await sizesRes.json();
+
+                let itemsHtml = '';
+                let totalAmount = 0;
+                for (const item of order.items) {
+                    const product = allProducts.find(p => p.id === item.productId) || { name: 'Sản phẩm không tồn tại', price: 0 };
+                    const color = allColors.find(c => c.id === item.colorId) || { colors_name: 'N/A' };
+                    const size = allSizes.find(s => s.id === item.sizeId) || { size_name: 'N/A' };
+                    const itemTotal = (product.price || 0) * item.quantity;
+                    totalAmount += itemTotal;
+                    itemsHtml += `
+                        <tr>
+                            <td>${product.name}</td>
+                            <td>${color.colors_name}</td>
+                            <td>${size.size_name}</td>
+                            <td>${item.quantity}</td>
+                            <td>${(product.price || 0).toLocaleString('vi-VN')} ₫</td>
+                            <td>${itemTotal.toLocaleString('vi-VN')} ₫</td>
+                        </tr>
+                    `;
+                }
+
+                const customerRes = await authFetch(`/api/customer/${order.customerID}`);
+                const customer = customerRes.ok ? await customerRes.json() : {};
+                const name = customer.customer_name || customer.name || "Không rõ";
+                const phone = order.customerPhone || "Không rõ";
+                const address = order.customerAddress || "Không rõ";
+
+                // === ĐÃ THÊM: DÒNG HIỂN THỊ TRẠNG THÁI GIAO HÀNG ===
+                let html = `
+                    <p><strong>Mã đơn hàng:</strong> ${order.id}</p>
+                    <p><strong>Khách hàng:</strong> ${name}</p>
+                    <p><strong>Điện thoại:</strong> ${phone}</p>
+                    <p><strong>Địa chỉ giao hàng:</strong> ${address}</p>
+                    <p><strong>Ngày tạo:</strong> ${new Date(order.createdAt).toLocaleString('vi-VN')}</p>
+                    <p><strong>Trạng thái thanh toán:</strong> <span class="fw-bold">${getPayingStatusLabel(order.payingStatus)}</span></p>
+                    <p><strong>Trạng thái giao hàng:</strong> <span class="fw-bold">${getShippingStatusLabel(order.deliveryStatus)}</span></p>
+                    <hr />
+                    <h5>Sản phẩm trong đơn hàng:</h5>
+                    <table class="table table-bordered text-center align-middle">
+                        <thead class="table-light"><tr><th>Tên sản phẩm</th><th>Màu sắc</th><th>Kích cỡ</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead>
+                        <tbody>${itemsHtml || '<tr><td colspan="6">Không có sản phẩm nào.</td></tr>'}</tbody>
+                        <tfoot><tr><td colspan="5" class="text-end"><strong>Tổng cộng:</strong></td><td class="fw-bold">${totalAmount.toLocaleString('vi-VN')} ₫</td></tr></tfoot>
+                    </table>
+                `;
+
+                if (order.payingStatus === "cancelled") {
+                    html += `<div class="d-flex gap-2 mt-3"><button id="restoreBtn" class="btn btn-success">🔄 Khôi phục đơn hàng</button></div>`;
+                } else {
+                    html += `<div class="d-flex gap-2 mt-3">
+                                <a href="/Order/Edit?id=${order.id}" class="btn btn-warning">✏️ Cập nhật đơn hàng</a>
+                                <button id="cancelBtn" class="btn btn-danger">❌ Từ chối đơn hàng</button>
+                             </div>`;
+                }
+
+                document.getElementById("orderDetail").innerHTML = html;
+            } catch (err) {
+                document.getElementById("orderDetail").innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
             }
         }
     </script>
