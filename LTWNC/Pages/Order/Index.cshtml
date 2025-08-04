@@ -79,7 +79,9 @@
                 if (!productRes.ok || !categoryRes.ok || !customerRes.ok) throw new Error('Không lấy được dữ liệu danh mục, sản phẩm hoặc khách hàng');
                 products = (await productRes.json()).items || [];
                 categories = await categoryRes.json() || [];
-                customers = await customerRes.json() || [];
+                        const customerData = await customerRes.json();
+        customers = customerData.items || []; // chỉ lấy mảng 'items'
+
                 populateCategoryFilter(categories);
                 return true;
             } catch (e) {
