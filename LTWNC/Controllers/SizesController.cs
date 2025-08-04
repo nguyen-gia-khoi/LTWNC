@@ -46,7 +46,7 @@ namespace LTWNC.Controllers
                 items = sizes
             });
         }
-        [Authorize]
+        
         [HttpGet("all")]
         public async Task<IEnumerable<Sizes>> GetAllSizes()
         {
@@ -56,7 +56,7 @@ namespace LTWNC.Controllers
                 .ToListAsync();
         }
 
-        [Authorize]
+        
         [HttpGet("{id}")]
         public async Task<ActionResult<Sizes?>> GetById(string id)
         {

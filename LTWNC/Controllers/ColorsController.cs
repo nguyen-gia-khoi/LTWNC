@@ -55,7 +55,7 @@ namespace LTWNC.Controllers
                 .SortByDescending(c => c.CreatedAt)
                 .ToListAsync();
         }
-        [Authorize(Roles = "Admin")]
+    
         [HttpGet("{id}")]
         public async Task<ActionResult<Colors>> GetById(string id)
         {
