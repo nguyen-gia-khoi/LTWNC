@@ -43,6 +43,10 @@
                             <input type="hidden" name="customerID" value="${order.customerID}">
                     </div>
                     <div class="mb-3">
+                        <label>Email</label>
+                        <input class="form-control" value="${getUserEmail(order.customerID)}" readonly>
+                    </div>
+                    <div class="mb-3">
                         <label>Địa chỉ</label>
                         <input class="form-control" name="customerAddress" value="${order.customerAddress || ''}">
                     </div>
@@ -220,6 +224,11 @@
             const user = users.find(u => u.id === userId);
             return user ? user.customer_name : 'Không rõ';
         }
+        function getUserEmail(userId) {
+            const user = users.find(u => u.id === userId);
+            return user ? user.email : 'Không rõ';
+        }
+
 
         function getProductName(productId) {
             const product = products.find(p => p.id === productId);

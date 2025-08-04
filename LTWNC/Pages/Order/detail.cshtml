@@ -156,6 +156,7 @@
                 let html = `
                     <p><strong>Mã đơn hàng:</strong> ${order.id}</p>
                     <p><strong>Khách hàng:</strong> ${name}</p>
+                    <p><strong>Email:</strong> ${customer.email || "Không rõ"}</p>
                     <p><strong>Điện thoại:</strong> ${phone}</p>
                     <p><strong>Địa chỉ giao hàng:</strong> ${address}</p>
                     <p><strong>Ngày tạo:</strong> ${new Date(order.createdAt).toLocaleString('vi-VN')}</p>
