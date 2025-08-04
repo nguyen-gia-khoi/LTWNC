@@ -60,11 +60,11 @@
                     </div>
                     <div class="mb-3">
                         <label>Trạng thái giao hàng</label>
-                        <select class="form-select" name="shippingStatus">
-                            <option value="processing" ${order.shippingStatus === 'processing' ? 'selected' : ''}>Đang xử lý</option>
-                            <option value="shipping" ${order.shippingStatus === 'shipping' ? 'selected' : ''}>Đang giao hàng</option>
-                            <option value="delivered" ${order.shippingStatus === 'delivered' ? 'selected' : ''}>Đã giao hàng</option>
-                            <option value="failed" ${order.shippingStatus === 'failed' ? 'selected' : ''}>Giao hàng thất bại</option>
+                                <select class="form-select" name="deliveryStatus">
+                            <option value="processing" ${order.deliveryStatus === 'processing' ? 'selected' : ''}>Đang xử lý</option>
+                            <option value="shipping" ${order.deliveryStatus === 'shipping' ? 'selected' : ''}>Đang giao hàng</option>
+                            <option value="delivered" ${order.deliveryStatus === 'delivered' ? 'selected' : ''}>Đã giao hàng</option>
+                            <option value="failed" ${order.deliveryStatus === 'failed' ? 'selected' : ''}>Giao hàng thất bại</option>
                         </select>
                     </div>
 
@@ -164,7 +164,7 @@
                 customerAddress: form.customerAddress.value,
                 customerPhone: form.customerPhone.value,
                 payingStatus: form.payingStatus.value,
-                shippingStatus: form.shippingStatus.value,
+                deliveryStatus: form.deliveryStatus.value,
                 items: items
             };
 
