@@ -60,7 +60,7 @@ namespace LTWNC.Controllers
             await _products.InsertOneAsync(product);
             return Ok(new { message = "Product created", productId = product.Id });
         }
-        [Authorize]
+        
         [HttpGet]
         public async Task<IActionResult> GetPagedProducts(
             [FromQuery] int page = 1,
@@ -89,7 +89,7 @@ namespace LTWNC.Controllers
                 items = products
             });
         }
-        [Authorize]
+        
         [HttpGet("{id}")]
         public async Task<ActionResult<Product?>> GetProductById( string id)
         {

@@ -49,7 +49,7 @@ namespace LTWNC.Controllers
         }
 
         // GET: /api/categories/all
-        [Authorize]
+
         [HttpGet("all")]
         public async Task<IEnumerable<Categories>> GetAllCategories()
         {
@@ -60,7 +60,7 @@ namespace LTWNC.Controllers
         }
 
         // GET: /api/categories/{id}
-        [Authorize(Roles = "Admin")]
+
         [HttpGet("{id}")]
         public async Task<ActionResult<Categories>> GetById(string id)
         {
